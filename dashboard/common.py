@@ -47,7 +47,7 @@ LABELS = {
     'is_canceled': 'Cancelled', 'executions': 'Executions',
     'review_status': 'Review status', 'execution_status': 'Execution status',
     'days_left': 'Days to check-in', 'date': 'Date', 'what': 'What happened', 'who': 'By',
-    'recommended': 'Recommendation',
+    'recommended': 'Recommendation', 'call_on': 'Suggested call day',
 }
 RISK_COLORS = ui.RISK_COLORS
 T = ui.TOKENS

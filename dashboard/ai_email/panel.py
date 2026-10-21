@@ -79,6 +79,7 @@ def render(default_booking: int | None = None) -> None:
     except Exception as exc:  # DB missing / unreachable: the rest of the page still works
         st.warning(f'AI email store not available: {exc}', icon=':material/cloud_off:')
         return
+    status_row(cfg)
     with st.expander('Connection status', expanded=bool(cfg.problems)):
         for line in cfg.summary():
             st.markdown(f'- {line}')
@@ -93,7 +94,22 @@ def render(default_booking: int | None = None) -> None:
     log_section(store, cfg, can_act)
 
 
+def status_row(cfg) -> None:
+    """Where state lives, how drafts are made and where sends go, as badges (green: live)."""
+    items = [
+        ('State', 'Shared PostgreSQL' if cfg.shared_db else 'Local SQLite (offline)', cfg.shared_db),
+        ('Drafts', ('AI via n8n' if cfg.live_ai else 'n8n fixtures') if cfg.n8n_draft
+         else 'Offline preview', bool(cfg.n8n_draft and cfg.live_ai)),
+        ('Sending', "Team's test inbox" if cfg.real_email else 'Mock only', bool(cfg.real_email)),
+    ]
+    line = ' &nbsp; '.join(f"{k}: :{'green' if on else 'gray'}-badge[{v}]" for k, v, on in items)
+    if cfg.problems:
+        line += f' &nbsp; :orange-badge[{len(cfg.problems)} setting(s) to check]'
+    st.markdown(line)
+
+
 def draft_inputs(ctx, cfg, store, can_act: bool, default_booking: int | None) -> None:
+    st.markdown('**1 · Booking and email**')
     left, mid, right = st.columns([1, 1.6, 1])
     known = ctx.queue[ctx.queue['score_time'].le(ctx.as_of) & ctx.queue['arrival_date'].gt(ctx.as_of)]
     start = default_booking if default_booking in set(known['booking_id']) else int(known['booking_id'].iloc[0])
@@ -141,6 +157,9 @@ def draft_inputs(ctx, cfg, store, can_act: bool, default_booking: int | None) ->
     h = c.context_hash(context)
     current = st.session_state.setdefault('g2_ai_by_context', {})
 
+    st.markdown('**3 · Draft, review and send**')
+    if not can_act and not cfg.read_only:
+        st.caption('Enter the access code above to draft and send.')
     if can_act:
         modes = []
         if cfg.n8n_draft and cfg.live_ai:
@@ -194,24 +213,31 @@ def draft_inputs(ctx, cfg, store, can_act: bool, default_booking: int | None) ->
 
 
 def show_sources(context: dict) -> None:
+    """Step 2: exactly what the draft is built from (read only), one tab per source."""
     b = context['booking']
-    with st.expander('Source data used for this draft', expanded=False):
+    st.markdown('**2 · Source data used for this draft**')
+    booking_tab, log_tab, policy_tab = st.tabs(['Booking & G1 schedule', 'Action log', 'Policy facts'])
+    with booking_tab:
         st.markdown(f"**Business date** {context['business_as_of']} ({context['hotel_timezone']}) · "
                     f"**Booking** {b['booking_id']} · **Arrival** {b['arrival_date']} · "
                     f"**Room type code** {b['room_type_code'] or '— (not in the source)'} · {b['scenario']}")
         if context['schedule']:
-            st.markdown('**G1 schedule of this booking**')
             st.dataframe(pd.DataFrame(context['schedule'])[['scheduled_at', 'rule', 'action_type', 'schedule_reason',
-                                                             'source_id']], hide_index=True, width='stretch')
+                                                             'source_id']], hide_index=True, width='stretch',
+                         alt='G1 schedule of this booking')
         else:
             st.caption('G1 has no schedule for this booking.')
+    with log_tab:
         if context['g2_actions']:
-            st.markdown('**Its actions in the G2 log** (read only; a draft never runs or unlocks them)')
+            st.caption('Its actions in the G2 log (read only; a draft never runs or unlocks them).')
             st.dataframe(pd.DataFrame(context['g2_actions'])[['action_id', 'action_type', 'rule_id', 'scheduled_at',
-                                                               'status']], hide_index=True, width='stretch')
+                                                               'status']], hide_index=True, width='stretch',
+                         alt='Actions of this booking in the G2 log')
+        else:
+            st.caption('No action of this booking in the G2 log yet.')
         if context.get('g2_stop_outcome'):
             st.caption(f"Latest guest response in the G2 log: {context['g2_stop_outcome']}")
-        st.markdown('**Policy / template facts**')
+    with policy_tab:
         for s in context['sources']:
             if s['kind'] == 'policy':
                 st.markdown(f"- `{s['source_id']}` {s['text']}")

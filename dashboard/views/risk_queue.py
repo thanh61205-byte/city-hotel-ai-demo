@@ -6,6 +6,8 @@ Approval goes through state_store.review_plans: one unit of work per booking, a 
 per booking, so a second click or a second session never creates duplicates."""
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pandas as pd
 import streamlit as st
 
@@ -107,37 +109,87 @@ st.caption(f'{others:,} open bookings are not in this queue (already decided, no
            + (f' {groups:,} group bookings are handled in Capacity planning.' if groups else ''))
 
 # ---------------------------------------------------------------- extra calls with free capacity
-# Calls the contact policy could not place (no free slot when the batch was scored). Today's free
-# slots: the daily capacity minus calls already logged, approved calls still to make, and calls
-# planned for today that still await review.
-calls_open = int((actions['action_type'].eq('phone_call')
-                  & actions['execution_status'].isin([wf.DUE, wf.FAILED])).sum())
-planned_today = schedule[schedule['scheduled_at'].eq(as_of) & schedule['action_type'].eq('phone_call')]
-waiting_calls = int(base.set_index('booking_id')['review_status']
-                    .reindex(planned_today['booking_id']).eq(wf.AWAITING).sum())
-free = max(ctx.capacity - ss.calls_made(con, as_of) - calls_open - waiting_calls, 0)
-with_actions = set(actions['booking_id'].dropna().astype(int))
-extra = base[base['review_status'].eq(wf.MANUAL)
-             & (base['days_left'] >= call_policy['min_days_before_arrival'])
-             & ~base['booking_id'].isin(with_actions)].sort_values('expected_revenue_at_risk',
-                                                                    ascending=False)
-with st.expander(f'Extra calls with today\'s free capacity ({free:,} of {ctx.capacity} call '
-                 'slots free)', icon=':material/call:'):
-    st.caption('High-risk bookings the contact policy left without a call slot ("Decide '
-               'manually"), by revenue at risk. A call for one of them is proposed from Action '
-               'Review; it counts against today\'s call capacity like any other call.')
-    if not free:
-        st.info('No call slot is free today.')
+# Free call slots per day over the next call window: the daily capacity minus the calls already in
+# the log for that day (made, due or planned; closed and rejected ones free their slot) and the
+# G1 calls planned that day for bookings still awaiting review.
+window, min_lead = call_policy['window_days'], call_policy['min_days_before_arrival']
+days = [as_of + timedelta(days=i) for i in range(window)]
+log_calls = actions[actions['action_type'].eq('phone_call')
+                    & ~actions['execution_status'].isin([wf.CLOSED, wf.REJECTED_ACTION])]
+used = {d: 0 for d in days}
+for due, done_on in zip(log_calls['due'], log_calls['executed_on']):
+    day = date.fromisoformat(done_on if isinstance(done_on, str) else due)
+    day = max(day, as_of) if not isinstance(done_on, str) else day  # an overdue call is made today
+    if day in used:
+        used[day] += 1
+review_of = base.set_index('booking_id')['review_status']
+planned = schedule[schedule['action_type'].eq('phone_call') & schedule['scheduled_at'].isin(days)]
+for day, bid in zip(planned['scheduled_at'], planned['booking_id']):
+    if review_of.get(bid) == wf.AWAITING:
+        used[day] += 1
+free = {d: max(ctx.capacity - used[d], 0) for d in days}
+
+# Who could use them: bookings without a call yet (no call slot left by G1, then reminder plans and
+# confirmation emails), riskiest first, each on the first day with a free slot that is inside its
+# G1 call window and far enough before arrival. Rejected recommendations are left alone.
+has_call = set(log_calls['booking_id'].dropna().astype(int))
+pool = base[base['review_status'].isin([wf.AWAITING, wf.APPROVED, wf.MANUAL])
+            & (base['rule'].ne('I3') | base['review_status'].eq(wf.MANUAL))
+            & ~base['booking_id'].isin(has_call)]
+pool = (pool.assign(_m=pool['review_status'].ne(wf.MANUAL), _t=pool['risk_tier'].map(TIER_ORDER))
+        .sort_values(['_m', '_t', 'expected_revenue_at_risk'], ascending=[True, True, False]))
+left = dict(free)
+picks = []
+for r in pool.itertuples():
+    for day in days:
+        if (left[day] and (day - r.score_time).days < window
+                and (r.arrival_date - day).days >= min_lead):
+            left[day] -= 1
+            picks.append({'booking_id': int(r.booking_id), 'call_on': day})
+            break
+    if len(picks) >= 20 or not any(left.values()):
+        break
+extra = (pd.DataFrame(picks, columns=['booking_id', 'call_on'])
+         .merge(base, on='booking_id', how='left'))
+n_free = sum(free.values())
+with st.expander(f'Extra calls with free call capacity ({n_free:,} free slots in the next {window} days)',
+                 icon=':material/call:'):
+    st.caption('Bookings that get no call from the contact policy, riskiest first, each with the first '
+               'day that has a free call slot inside its call window. A proposed call goes to the '
+               'action log on that day like any other call (no approval needed); the recommendation '
+               'itself is still reviewed as usual.')
+    st.markdown('Free slots: ' + ' · '.join(f"{d:%a %d %b} **{free[d]}**" for d in days))
+    if not n_free:
+        st.info('No call slot is free in the next days.')
     elif extra.empty:
-        st.info('No booking waits for a manual call decision.')
+        st.info('No booking without a call can still be called in a free slot (call window over or '
+                'too close to arrival).')
     else:
-        top = extra.head(free)
-        table(top[['booking_id', 'arrival_date', 'days_left', 'p_cancel', 'risk_tier', 'gross_value',
-                   'expected_revenue_at_risk']], {'gross_value': EUR, 'expected_revenue_at_risk': EUR})
-        with st.container(horizontal=True, vertical_alignment='bottom'):
-            pick = st.selectbox('Booking', top['booking_id'].astype(int).tolist(), key='rq_extra')
-            if st.button('Open in Action Review', icon=':material/rate_review:', key='rq_extra_open'):
-                st.switch_page('views/action_review.py', query_params={'booking': str(pick)})
+        table(extra.assign(risk_tier=extra['risk_tier'].map(vocab.TIERS))
+              [['booking_id', 'call_on', 'arrival_date', 'p_cancel', 'risk_tier',
+                'expected_revenue_at_risk', 'recommended', 'review_status']],
+              {'expected_revenue_at_risk': EUR}, height=min(40 + 35 * len(extra), 320))
+        when = dict(zip(extra['booking_id'], extra['call_on']))
+        with st.form('rq_extra_form'):
+            chosen = st.multiselect('Propose a call for', list(when), key='rq_extra',
+                                    format_func=lambda b: f'{b} · call on {when[b]:%a %d %b}',
+                                    placeholder='Choose bookings')
+            go = st.form_submit_button('Propose calls', icon=':material/call:')
+        if go and chosen:
+            made, refused = [], []
+            for b in chosen:
+                r = base.set_index('booking_id').loc[b]
+                try:
+                    made.append(ss.create_action(
+                        con, 'phone_call', booking_id=int(b), decision_at=as_of, scheduled_at=when[b],
+                        known_from=r['score_time'], arrival_date=r['arrival_date'],
+                        source_run_id=manifest['policy_key'], risk_tier=r['risk_tier'],
+                        deposit_type=r['deposit_type']))
+                except common.BLOCKED as e:
+                    refused.append({'booking': int(b), 'reason': vocab.friendly_error(e)})
+            common.done_and_rerun(f'{len(made):,} call(s) proposed: they appear in Execution & '
+                                  'follow-up on their day.' + (f' {len(refused)} refused.' if refused else ''),
+                                  {'refused': refused} if refused else None, where='risk_queue')
 
 with st.expander('How recommendations are made'):
     st.markdown(
