@@ -113,8 +113,6 @@ common.keep_dialog_on(page.url_path)  # a detail popup belongs to the page it wa
 
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
-    st.caption(f'Risk model {manifest["selected_model"]} (run {manifest["run_id"][:6]}); at most '
-               f'{CAPACITY} calls a day. Details on the Data scope page.')
     if seed_history.status(con) is None:  # never prepared (G2_SEED_HISTORY=0)
         st.caption(':orange[History up to yesterday was not prepared (G2_SEED_HISTORY=0): look-back '
                    'figures and KPIs cover only what was recorded in this log.]')
