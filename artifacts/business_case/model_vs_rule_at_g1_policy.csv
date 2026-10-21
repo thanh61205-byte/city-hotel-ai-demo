@@ -1,0 +1,3 @@
+scenario,calls,actual_calls,reminder_bookings,messages,cancellations_reachable,prevented_expected,induced_expected,benefit_eur,backfire_loss_eur,variable_cost_eur,net_eur,weeks,net_eur_per_year
+"G1 shares, model ranking (S4)",1744,1688,5186,7709,1396,85.56,17.380000000000003,25001.49933,1781.442630733333,2765.5299999999997,20454.52669926667,35,30389.582524624766
+"G1 shares, segment x lead-band rule ranking",1753,1707,5298,8041,1240,79.69,18.495,23908.282702,1701.6778322699997,2808.9199999999996,19397.68486973,35,28819.417520741717

@@ -1,0 +1,10 @@
+check,passed
+risk_scores rows = action_queue rows (same booking_id + score_time),True
+risk_scores p_cancel = action_queue p_cancel (4 dp),True
+risk_scores risk_tier = action_queue risk_tier,True
+risk_scores model_version = action_queue model_version,True
+test_predictions queue rows = individual queue rows,True
+test_predictions p / tier / rule = action_queue,True
+"schedule rows join the queue on booking_id + decision time, same rule and run",True
+no action scheduled before its decision time,True
+single run_id in every output,True

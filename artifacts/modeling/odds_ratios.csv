@@ -1,0 +1,16 @@
+variable,kind,level,reference,log_odds,odds_ratio
+agent_top,categorical (vs reference),9,none,0.964294388840777,2.6229362302838832
+customer_type,categorical (vs reference),Transient-Party,Transient,-0.8650898622422103,0.4210137176907075
+agent_top,categorical (vs reference),28,none,-0.6771121593531616,0.5080821360410229
+customer_type,categorical (vs reference),Contract,Transient,-0.66845351775976,0.5125005382328122
+customer_type,categorical (vs reference),Group,Transient,-0.6154765379473238,0.5403833207837188
+meal,categorical (vs reference),SC,BB,0.4364638323924186,1.5472262820075948
+agent_top,categorical (vs reference),7,none,-0.4265862470489747,0.6527335668038831
+prev_cancel_ratio,numeric (per +1 SD),+1 SD,1 SD lower (SD = 0.135),0.42254416956793256,1.5258386137473696
+agent_top,categorical (vs reference),22,none,-0.35112018456133703,0.7038991509610582
+agent_top,categorical (vs reference),83,none,0.33870909115701897,1.4031351014258395
+lead_time_log,numeric (per +1 SD),+1 SD,1 SD lower (SD = 1.53),0.32503083608061395,1.3840733247193422
+agent_top,categorical (vs reference),16,none,-0.2701711283777497,0.7632488696194967
+agent_top,categorical (vs reference),27,none,-0.26692705838573405,0.7657289229321299
+is_last_minute,numeric (per +1 SD),+1 SD,1 SD lower (SD = 0.414),-0.26378428909693996,0.7681392177911193
+agent_top,categorical (vs reference),11,none,-0.2615784867241256,0.7698354511904423

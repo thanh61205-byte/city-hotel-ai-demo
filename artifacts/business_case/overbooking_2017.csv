@@ -1,0 +1,5 @@
+policy,nights_with_limit,rooms_offered,extra_sold,walks,net_eur,net_eur_per_year
+model q (chosen policy),3,11,8.8,4.6000128,-454.60943738879996,-682.8495664481975
+naive average q,0,0,0.0,0.0,0.0,0.0
+"model q, walk cost EUR 75",3,11,8.8,4.6000128,-109.60847738879994,-164.63824792967893
+"model q, walk cost EUR 300",3,11,8.8,4.6000128,-1144.6113573888001,-1719.2722034852347

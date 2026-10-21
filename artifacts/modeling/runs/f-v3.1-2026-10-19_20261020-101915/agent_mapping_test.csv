@@ -1,0 +1,4 @@
+fold,fit_date,top_agents_in_fold,agents_in_nb03_list_not_in_fold_list,train_rows_whose_nb03_category_differs,test_passed
+fold_1,2016-03-31,15,3,794,True
+fold_2,2016-06-30,15,3,1151,True
+fold_3,2016-09-30,15,4,1623,True

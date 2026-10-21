@@ -1,0 +1,10 @@
+rule,track,condition,action,channel,owner,approval,unit_cost_eur,assumed_uplift,enabled,disabled_reason
+I1,individual,"low tier, or any tier with <= 7 days except high",Standard confirmation at the decision time + reminder 7 days before arrival,email,n8n (Reservations monitors),auto,0.0,0.0,True,
+I2,individual,"reminder tier: next by p_cancel until 60% of the weekly batch is contacted, >= 8 days",Personalised reminders at -30 and -14 days (one immediately if a milestone has passed; max 2),email + SMS,n8n (Reservations monitors),auto,0.05,0.03,True,
+I3,individual,"call tier: top 15% of the weekly batch by p x gross, >= 8 days; at most 20 calls/day","Call task within 7 calendar days, starting on the decision day; highest p_cancel x gross first; at most 20 booking tasks/day (average attempts costed per task); overflow to manual review",phone,Reservations / front office,none (internal task),1.41,0.1,True,
+I4,individual,I3 call and the guest asks to change,Offer a date / room change,phone,Reservations,Revenue manager if price changes,0.0,,True,
+I5,individual,call tier with <= 7 days to arrival,No contact; count in the date x room-type cancellation buffer,-,Revenue manager,-,0.0,,True,
+I6,individual,"call tier, No Deposit, high value, written policy",Request a deposit (off by default),email / phone,Reservations,Revenue manager (GDPR Art. 22 review),,,False,Requires a written deposit policy and approval
+G1,group_block,"group-rule p_cancel >= 0.5, > 30 days to arrival",Ask the agent to confirm or release the block 30 days before arrival,email / phone,Distribution / sales,Revenue manager for the release,2.5,,True,
+G2,group_block,released or forecast-cancelled rooms above the buffer,"Reallocate capacity, put rooms back on sale",-,Revenue manager,required,,,True,
+G3,group_block,high forecast cancellations on a high-demand date,DISABLED: controlled overbooking; exploratory costed analysis only,-,Revenue manager,required (GM sets limits),,,False,Exploratory retrospective capacity analysis; not an approved operational policy.

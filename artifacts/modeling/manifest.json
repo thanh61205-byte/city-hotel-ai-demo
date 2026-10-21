@@ -1,0 +1,158 @@
+{
+  "notebook": "notebooks/04_modeling_evaluation.ipynb",
+  "model_version": "f-v3.1-2026-10-19",
+  "run_id": "f-v3.1-2026-10-19_20261020-101915",
+  "run_finished": "2026-10-20T10:26:48",
+  "config": {
+    "seed": 42,
+    "population": "individual",
+    "population_block_size": 5,
+    "fit_date_final": "2016-12-31",
+    "folds": [
+      [
+        "fold_1",
+        "2016-03-31",
+        "2016-04-01",
+        "2016-06-30"
+      ],
+      [
+        "fold_2",
+        "2016-06-30",
+        "2016-07-01",
+        "2016-09-30"
+      ],
+      [
+        "fold_3",
+        "2016-09-30",
+        "2016-10-01",
+        "2016-12-31"
+      ]
+    ],
+    "test_window": [
+      "2017-01-01",
+      "2017-08-31"
+    ],
+    "excluded_price_features": [
+      "adr_clean",
+      "adr_vs_ref",
+      "adr_per_guest",
+      "is_free_rate"
+    ],
+    "top_agents": 15,
+    "optuna_trials": {
+      "logistic_regression": 20,
+      "xgboost": 30
+    },
+    "pre_arrival_trials": {
+      "logistic_regression": 8,
+      "xgboost": 15
+    },
+    "half_life_grid_days": [
+      0,
+      365,
+      180,
+      90
+    ],
+    "selection_tolerance_logloss": 0.002,
+    "calibration_tolerance_brier": 0.0005,
+    "capacity_shares": [
+      0.05,
+      0.1,
+      0.2
+    ],
+    "tier_high_share": 0.05,
+    "tier_medium_share": 0.2,
+    "capacity_rounding": "floor",
+    "scoring_batch": "booking week (W-SUN)",
+    "decision_time": "end of the booking week (Sunday); queue = bookings created that week and still eligible then",
+    "i2_milestones_days": [
+      30,
+      14
+    ],
+    "i2_max_messages": 2,
+    "i1_reminder_days": 7,
+    "pre_arrival_horizons_days": [
+      14,
+      30
+    ],
+    "bootstrap_draws": 500,
+    "min_alerts_for_precision": 30,
+    "model_version": "f-v3.1-2026-10-19"
+  },
+  "environment": {
+    "python": "3.13.7",
+    "pandas": "2.2.3",
+    "numpy": "2.1.3",
+    "scikit-learn": "1.6.1",
+    "xgboost": "3.4.1",
+    "optuna": "4.9.0",
+    "scipy": "1.18.1",
+    "matplotlib": "3.10.0",
+    "seaborn": "0.13.2"
+  },
+  "selected_model": "xgboost",
+  "params": {
+    "half_life_days": 90,
+    "n_estimators": 500,
+    "max_depth": 3,
+    "learning_rate": 0.022732512887240954,
+    "subsample": 0.7243929286862649,
+    "colsample_bytree": 0.6625916610133735,
+    "min_child_weight": 11.959603830191838,
+    "reg_lambda": 3.7958335792652886
+  },
+  "calibration": "none",
+  "contracts": {
+    "headline": "retrospective arrival cohort 2017, population A",
+    "operational_queue": "end of the booking week (Sunday); queue = bookings created that week and still eligible then; score_time > fit_date = selection_cutoff = 2016-12-31",
+    "pre_arrival": "own selection per branch on labels known by the branch cutoff",
+    "tie_break": "fm.id_tie_breaker(booking_id), seed 0",
+    "capacity_rounding": "floor"
+  },
+  "inputs": {
+    "data/processed/modeling_dataset.csv": "f7eae0ab1c3f9278",
+    "data/processed/bookings_prepared.csv": "fa099aca5af6bf49",
+    "config/column_groups.json": "41505aba50515626"
+  },
+  "code": {
+    "src/f_modeling.py": "e7ec329271ed260a",
+    "src/run_notebooks.py": "d043713795e7038f",
+    "requirements.txt": "5e3493dd9ae80dba"
+  },
+  "outputs": [
+    "action_queue_2017.csv",
+    "action_schedule_2017.csv",
+    "agent_mapping_test.csv",
+    "calibration_choice.csv",
+    "cancellation_aggregate_retrospective.csv",
+    "deciles_test.csv",
+    "feature_importance.csv",
+    "final_model_bundle.joblib",
+    "model_comparison_oof.csv",
+    "model_report.md",
+    "model_vs_rules.csv",
+    "monthly_test.csv",
+    "odds_ratios.csv",
+    "oof_predictions_2016.csv",
+    "optuna_trials.csv",
+    "output_consistency.csv",
+    "policy_queue_diff.csv",
+    "policy_test.csv",
+    "pre_arrival_cancellation_timing.csv",
+    "pre_arrival_selection.csv",
+    "precision_recall_f1.csv",
+    "queue_contract.csv",
+    "revenue_capture.csv",
+    "risk_scores.csv",
+    "robustness.csv",
+    "sample_decisions.csv",
+    "staffing_2016.csv",
+    "subgroups_test.csv",
+    "system_view.csv",
+    "test_metrics.csv",
+    "test_predictions_2017.csv",
+    "tiers_queue.csv",
+    "workload_by_month.csv",
+    "manifest.json"
+  ]
+}

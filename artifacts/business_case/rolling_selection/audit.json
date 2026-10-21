@@ -1,0 +1,50 @@
+{
+  "signature": "9d7a061f1d153d39a42614c32527be1fdb3bfa327eac4b4f872d01108a8b74e8",
+  "selected_model": {
+    "model": "xgboost",
+    "params": {
+      "n_estimators": 200,
+      "max_depth": 2,
+      "learning_rate": 0.05
+    },
+    "log_loss_2015": 0.34920944700057005
+  },
+  "candidates": [
+    {
+      "model": "logistic_regression",
+      "params": {
+        "C": 1.0
+      },
+      "log_loss_2015": 2.356300062267366
+    },
+    {
+      "model": "xgboost",
+      "params": {
+        "n_estimators": 200,
+        "max_depth": 3,
+        "learning_rate": 0.05
+      },
+      "log_loss_2015": 0.3519448755363763
+    },
+    {
+      "model": "xgboost",
+      "params": {
+        "n_estimators": 200,
+        "max_depth": 2,
+        "learning_rate": 0.05
+      },
+      "log_loss_2015": 0.34920944700057005
+    }
+  ],
+  "model_selection_cutoff": "2015-12-31",
+  "policy_selection_cutoff": "2016-12-31",
+  "validation_rows": 1103,
+  "scored_rows": 24077,
+  "batches": 52,
+  "unresolved_outcomes_at_policy_freeze": 4571,
+  "limitation": "Retrospective snapshot features and population proxy inherited from F; historical model selected on 2015 differs from final F model selected on 2016.",
+  "output_sha256": {
+    "predictions.csv": "8f3f96acd5eee666536e2c20c3961d174553009282a236af798310ade3e0adc5",
+    "batches.csv": "3090bb7b2f2a2f10e03acf2d0e952ec2f23eba307ba55d7defacc88aceaa28d2"
+  }
+}

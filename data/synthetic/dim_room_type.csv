@@ -1,0 +1,10 @@
+room_type,capacity_rooms,is_sellable,capacity_source
+A,146,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+B,15,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+C,3,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+D,57,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+E,10,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+F,8,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+G,5,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+K,8,True,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"
+P,0,False,"derived: peak occupied rooms per assigned_room_type, 2015-09..2017-08"

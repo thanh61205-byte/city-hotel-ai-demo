@@ -1,0 +1,3 @@
+# G1 rolling-selection outputs are checked byte for byte against audit.json (sha256), and were
+# written with Windows line endings. Keep their bytes exactly as written: no line-ending conversion.
+artifacts/business_case/rolling_selection/*.csv -text

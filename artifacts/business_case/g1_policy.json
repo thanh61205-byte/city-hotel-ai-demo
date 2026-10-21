@@ -1,0 +1,110 @@
+{
+  "policy": {
+    "high_share": 0.15,
+    "contact_share": 0.6,
+    "high_rank": "p_x_gross"
+  },
+  "call_capacity_per_day": 20,
+  "decision_time": "end of the booking week (Sunday); queue = bookings created that week and still eligible then",
+  "tiering": "call tier = first floor(high_share x batch) by high_rank; reminder tier = next by p_cancel up to floor(contact_share x batch)",
+  "rules": {
+    "I3_min_days": 8,
+    "I2_min_days": 8,
+    "I2_milestones_days": [
+      30,
+      14
+    ],
+    "I2_max_messages": 2,
+    "I1_reminder_days": 7
+  },
+  "group_track": {
+    "flag_threshold": 0.5,
+    "release_ask_days": 30
+  },
+  "chosen_on": "2016 weekly rolling predictions; only outcomes known by 2016-12-31",
+  "rolling_selection": {
+    "signature": "9d7a061f1d153d39a42614c32527be1fdb3bfa327eac4b4f872d01108a8b74e8",
+    "selected_model": {
+      "model": "xgboost",
+      "params": {
+        "n_estimators": 200,
+        "max_depth": 2,
+        "learning_rate": 0.05
+      },
+      "log_loss_2015": 0.34920944700057005
+    },
+    "candidates": [
+      {
+        "model": "logistic_regression",
+        "params": {
+          "C": 1.0
+        },
+        "log_loss_2015": 2.356300062267366
+      },
+      {
+        "model": "xgboost",
+        "params": {
+          "n_estimators": 200,
+          "max_depth": 3,
+          "learning_rate": 0.05
+        },
+        "log_loss_2015": 0.3519448755363763
+      },
+      {
+        "model": "xgboost",
+        "params": {
+          "n_estimators": 200,
+          "max_depth": 2,
+          "learning_rate": 0.05
+        },
+        "log_loss_2015": 0.34920944700057005
+      }
+    ],
+    "model_selection_cutoff": "2015-12-31",
+    "policy_selection_cutoff": "2016-12-31",
+    "validation_rows": 1103,
+    "scored_rows": 24077,
+    "batches": 52,
+    "unresolved_outcomes_at_policy_freeze": 4571,
+    "limitation": "Retrospective snapshot features and population proxy inherited from F; historical model selected on 2015 differs from final F model selected on 2016.",
+    "output_sha256": {
+      "predictions.csv": "8f3f96acd5eee666536e2c20c3961d174553009282a236af798310ade3e0adc5",
+      "batches.csv": "3090bb7b2f2a2f10e03acf2d0e952ec2f23eba307ba55d7defacc88aceaa28d2"
+    }
+  },
+  "stage_f_run": "f-v3.1-2026-10-19_20261020-101915",
+  "assumptions": {
+    "uplift_call": 0.1,
+    "uplift_rem": 0.03,
+    "backfire_call": 0.0,
+    "backfire_rem": 0.005,
+    "call_minutes": 6,
+    "call_attempts": 1.5,
+    "sms_cost": 0.05,
+    "email_cost": 0.0,
+    "resale_scale": 1.0
+  },
+  "schema_version": 2,
+  "call_schedule": {
+    "start_day": 0,
+    "window_days": 7,
+    "min_days_before_arrival": 8,
+    "capacity_unit": "booking-level call tasks, average attempts included in task cost",
+    "basis": "Team operational assumption: start on decision day, 7 calendar days, no automatic overflow"
+  },
+  "overbooking": {
+    "enabled": false,
+    "reason": "Exploratory retrospective capacity analysis; not an approved operational policy."
+  },
+  "roi_definition": "Net after variable intervention, one-off and running costs / total of ALL these costs over the same horizon",
+  "evaluation_file": "retrospective_evaluation_2017.csv",
+  "schedule_file": "action_schedule_g1_2017.csv",
+  "execution_checks": [
+    "status",
+    "arrival window",
+    "consent",
+    "open actions",
+    "guest response",
+    "daily capacity"
+  ]
+}

@@ -1,0 +1,383 @@
+# Assumptions register — see README §5.2
+# Every value is grounded in Lisbon/Portugal 2015–2017 (credible source or derived from the data);
+# otherwise basis = "team assumption" with a reason and a sensitivity range.
+# Code reads parameters ONLY from this file (notebooks/02_data_architecture.ipynb).
+#
+# Template:
+# param_name:
+#   value:
+#   unit:
+#   basis:            # source | derived from data | team assumption
+#   source:           # citation or URL
+#   sensitivity_range: [low, high]
+
+meta:
+  random_seed: 42             # main generator in notebook 02 (np.random.default_rng) and MI sample in notebook 03
+  sample_extract_seed: 7      # stratified 30-row example extract (notebook 02, Section 6)
+  display_sample_seed: 1      # 8 example reason texts shown in notebook 02 (display only, not exported)
+  currency: EUR
+  period: "2015-07-01 to 2017-08-31 (arrival dates in the dataset)"
+
+benchmarks:            # context only, used to sanity-check derived capacity / occupancy
+  lisbon_occupancy_4star_2016:
+    value: 0.791
+    unit: share of rooms
+    basis: source
+    source: "Observatório do Turismo de Lisboa, via PANROTAS (02/02/2017), https://www.panrotas.com.br/noticia-turismo/hotelaria/2017/02/hotelaria-de-lisboa-tem-recorde-de-receita-por-quarto_143945.html"
+  lisbon_occupancy_5star_2016:
+    value: 0.687
+    unit: share of rooms
+    basis: source
+    source: "Observatório do Turismo de Lisboa, via PANROTAS (02/02/2017)"
+  lisbon_adr_4star_2016:
+    value: 75.81
+    unit: EUR
+    basis: source
+    source: "Observatório do Turismo de Lisboa, via PANROTAS (02/02/2017)"
+  lisbon_adr_5star_2016:
+    value: 144.56
+    unit: EUR
+    basis: source
+    source: "Observatório do Turismo de Lisboa, via PANROTAS (02/02/2017)"
+
+operations:
+  room_capacity_by_type:
+    value: derived            # computed in notebook 02: peak occupied rooms per assigned_room_type, Sep-2015..Aug-2017
+    unit: rooms
+    basis: derived from data
+    source: "hotel_bookings.csv (non-cancelled stay nights x assigned_room_type). Peaks: A146 B15 C3 D57 E10 F8 G5 K8 = 252 rooms; implied 2016 occupancy ~71.3%, in line with Lisbon 4-5* 2016 (69-79%). A city benchmark cannot identify this hotel's true capacity."
+    window: ["2015-09-01", "2017-08-31"]   # complete months used for the peak; also defines is_partial_period
+    sensitivity_range: [1.00, 1.10]   # multiplier on derived capacity
+    constraint: "capacity must stay >= observed rooms_sold for every (date, room type). The derived peak is the minimum consistent with the data, so a multiplier < 1 is only valid in a scenario that also reduces demand; it is not used with fixed observed demand."
+    note: "Uses realised stays through Aug-2017 (incl. the 2017 test period): ops / scenario use only, never a classifier input (see column_groups.json excluded_features)."
+  non_sellable_room_types:
+    value: ["P"]
+    unit: room type codes
+    basis: derived from data
+    source: "P has 10 bookings, all adr = 0 and no stay nights -> treated as non-sellable"
+  high_demand_occupancy_threshold:
+    value: 0.85
+    unit: occupancy of (date, room type)
+    basis: team assumption
+    source: "Defines 'high demand' dates for resale probability; common revenue-management rule of thumb"
+    sensitivity_range: [0.80, 0.90]
+  resale_probability:          # probability that one cancelled room-night is resold
+    basis: team assumption
+    source: "No published resale rates; set by notice period x demand and stress-tested in scenarios. Bounded by real rooms_sold."
+    value:
+      notice_30_plus:  {high_demand: 0.70, normal: 0.45}
+      notice_8_29:     {high_demand: 0.50, normal: 0.30}
+      notice_0_7:      {high_demand: 0.20, normal: 0.10}
+      no_show:         {high_demand: 0.00, normal: 0.00}
+    sensitivity_range: [-0.15, 0.15]  # absolute shift
+  resale_price_factor:
+    value: 0.90
+    unit: share of the stay-date median ADR for the room type
+    basis: team assumption
+    source: "Resold rooms are often sold closer to arrival with some discount"
+    sensitivity_range: [0.80, 1.00]
+
+finance:
+  rooms_cost_ratio:
+    value: 0.27
+    unit: share of room-type x month median ADR
+    basis: source
+    source: "CBRE Trends in the Hotel Industry 2016: rooms dept. profit margin 74.5% in 2015 -> expenses ~25.5% of rooms revenue (Lodging Magazine, Feb 2017, https://lodgingmagazine.com/the-rising-cost-of-rooms/); HVS: Europe rooms expense ~30% (https://www.hvs.com/article/5529-comparing-same-hotel-across-five-regions)"
+    proxy_note: "International proxy (US CBRE sample; HVS European average), not a Lisbon-specific figure"
+    sensitivity_range: [0.25, 0.30]
+  cost_noise:
+    value: 0.10
+    unit: +/- uniform noise on room_cost_per_night
+    basis: team assumption
+    source: "Variation by stay length / housekeeping intensity"
+    sensitivity_range: [0.00, 0.20]
+  commission_rate_by_segment:
+    basis: mixed (see notes)
+    value:
+      Online TA: 0.18
+      Offline TA/TO: 0.20
+      Groups: 0.10
+      Direct: 0.00
+      Corporate: 0.00
+      Aviation: 0.00
+      Complementary: 0.00
+      Undefined: 0.00
+    notes:
+      Online TA: "Booking.com avg 16.1% (15-17% by city) and Expedia 25% (Europe 1, 28/05/2014, https://www.europe1.fr/economie/Booking-Expedia-les-hoteliers-sont-ils-vraiment-perdants-660490), weighted by OTA shares Booking 66.4% / Expedia 16.6% (HOTREC European Hotel Distribution Study, 2017 data) -> ~0.18"
+      Offline TA/TO: "team assumption: tour-operator / wholesaler margin"
+      Groups: "team assumption: group desk / agent commission"
+      Direct: "no third-party commission (booking-engine cost ignored)"
+      Corporate: "negotiated net rates"
+    proxy_note: "Online TA rate is a European OTA proxy (France 2014 press figures + HOTREC 2017 shares), not a Lisbon contract rate"
+    sensitivity_range: [0.15, 0.25]   # for Online TA
+  gds_commission_rate:
+    value: 0.10
+    unit: share of room revenue (applies when distribution_channel == GDS)
+    basis: team assumption
+    source: "Travel-agent commission on GDS bookings (industry practice ~10%)"
+    sensitivity_range: [0.08, 0.12]
+  staff_cost_per_hour:
+    value: 9.40
+    unit: EUR per hour (loaded)
+    basis: source + calculation
+    source: "AHP 2016 avg hotel wage EUR 1,035/month x 14 payments (Diário de Notícias, 19/02/2018, https://www.dn.pt/dinheiro/interior/salarios-medios-sobem-no-turismo-mas-ainda-nao-vao-alem-dos-632-euros-9128393.html) x 1.2375 employer social security (23.75%) / ~1,900 working hours"
+    sensitivity_range: [6.0, 10.0]   # lower bound ~ minimum wage 2016-17 (EUR 530 / 557, DL 86-B/2016)
+  handling_minutes:
+    basis: team assumption
+    source: "Time to process a cancellation in PMS/channel manager, plus contact"
+    value: {no_contact: 8, email: 10, sms: 10, phone: 15}
+    sensitivity_range: [5, 20]
+  # --- Money definitions for the cancelled-booking loss proxy (notebook 03, Section 2.6) ---
+  deposit_retained_share:
+    value: {Non Refund: 0.0, Refundable: 0.0, No Deposit: 0.0}
+    unit: share of gross_value kept by the hotel when the booking is cancelled
+    basis: team assumption
+    source: "The dataset records deposit_type but no amount charged or kept. 99.8% of Non Refund bookings cancel, which is hard to reconcile with a fully collected non-refundable prepayment, so the base case assumes nothing is retained. No-shows are treated the same way."
+    sensitivity_range: [0.0, 1.0]   # Non Refund only; notebook 03 reports both ends
+  resale_commission_rate:
+    value: 0.18
+    unit: share of resale revenue paid to the channel that resells the room
+    basis: team assumption
+    source: "Rooms resold close to arrival are assumed to go mostly through OTAs, so the Online TA rate (finance.commission_rate_by_segment) is reused"
+    sensitivity_range: [0.00, 0.20]
+
+cx:
+  contact_probability:
+    basis: team assumption
+    source: "Simulates an ASSUMED existing manual pre-arrival confirmation practice (not observed; to validate with the hotel)"
+    value: {base: 0.35, lead_time_over_30: 0.15, groups_or_corporate: 0.10}
+    lead_time_threshold_days: 30     # 'lead_time_over_30' applies when lead_time > this value
+    max_probability: 0.95            # cap on the summed probability
+    sensitivity_range: {base: [0.20, 0.50], lead_time_over_30: [0.05, 0.25], groups_or_corporate: [0.0, 0.20]}
+  contact_days_before_arrival:
+    basis: team assumption
+    value: {days: [30, 14, 7, 3], weights: [0.25, 0.30, 0.30, 0.15]}
+    sensitivity_range: "alternative weight sets, e.g. all contacts at 7 days vs all at 30 days"
+  contact_channel_mix:
+    basis: team assumption
+    value:
+      default: {email: 0.60, sms: 0.25, phone: 0.15}
+      groups_corporate_or_high_value: {email: 0.40, sms: 0.15, phone: 0.45}
+    high_value_quantile: 0.90
+    sensitivity_range: {phone_share_default: [0.05, 0.30], phone_share_special: [0.30, 0.60]}
+  response_probability:
+    basis: team assumption
+    source: "Generated conditionally on the outcome -> NEVER a model feature (README §5.3)"
+    value:
+      stayed:    {confirmed: 0.75, requested_change: 0.10, no_response: 0.15}
+      cancelled: {confirmed: 0.20, requested_change: 0.25, no_response: 0.55}
+      phone_no_response_multiplier: 0.5
+    sensitivity_range: {no_response_cancelled: [0.40, 0.70], phone_no_response_multiplier: [0.3, 1.0]}
+  satisfaction:
+    basis: team assumption
+    source: "Base mean ~4/5 for a city hotel; adjustments by observed stay attributes"
+    value:
+      base_mean: 4.0
+      sd: 0.8
+      room_type_changed: -0.3
+      special_requests: 0.2
+      repeated_guest: 0.3
+      waiting_list: -0.3
+      adr_above_month_median_premium: -0.2   # applied when adr_clean > adr_premium_multiplier x month median ADR
+      adr_premium_multiplier: 1.3
+    sensitivity_range: {base_mean: [3.6, 4.4], sd: [0.6, 1.0], adjustments: "x0.5 to x1.5"}
+  cancellation_reason:
+    basis: team assumption
+    source: "Category mix for a city hotel; text generated from templates (demonstrates the text pipeline, not real customer reasons)"
+    value:
+      not_provided_share: 0.30
+      base_mix:
+        change_of_plans: 0.35
+        found_better_price: 0.20
+        duplicate_booking: 0.10
+        travel_restriction_or_illness: 0.10
+        group_size_change: 0.05
+        other: 0.20
+      boosts:   # multiplicative weight boosts before renormalising
+        groups_segment: {group_size_change: 6.0}
+        online_ta_high_adr: {found_better_price: 2.0}
+        lead_time_over_180: {change_of_plans: 1.5}
+        duplicate_row: {duplicate_booking: 3.0}
+      lead_time_boost_threshold_days: 180   # 'lead_time_over_180' applies when lead_time > this value
+      text_lowercase_probability: 0.15      # share of texts written fully in lower case (text variation)
+    sensitivity_range: {not_provided_share: [0.20, 0.50], boosts: "x0.5 to x2"}
+
+scenarios: {}   # G1 scenarios use the g1 block below
+
+# --- Stage G1: decision rules, value of an action and ROI (notebooks/05_decision_business_case.ipynb) ---
+# Behaviour of guests after a contact is NOT observed anywhere in the data: every uplift / backfire value below is a
+# team assumption, tested in the sensitivity analysis and to be replaced by the pilot (README §5.3, KPI C1).
+g1:
+  policy_selection:
+    basis: "chosen on weekly rolling 2016 predictions; only outcomes known by 2016-12-31 contribute to selection; frozen before the 2017 queue is read"
+    high_share_grid: [0.05, 0.10, 0.15]                 # share of each weekly batch that gets a phone call (I3)
+    contact_share_grid: [0.20, 0.30, 0.40, 0.50, 0.60, 0.80, 1.00]   # high + medium (I2 reminders) share of the batch
+    high_ranking_options: ["p_cancel", "p_x_gross"]    # rank the call tier by risk, or by expected revenue at risk
+    selection_tolerance: 0.02                          # within 2% of the best net benefit, prefer fewer contacts
+  call_capacity_per_day:
+    value: 20
+    unit: completed call tasks per day (reservations team)
+    basis: team assumption
+    source: "Placeholder for the reservations lead (decision table §1 'Capacity'). 20 calls x ~9 min = ~3 staff-hours a day. Checked against the busiest 2016 month of new individual bookings (artifacts/modeling/staffing_2016.csv)"
+    sensitivity_range: [10, 40]
+  call_minutes_per_attempt:
+    value: 6
+    unit: minutes per call attempt (dial, talk, log)
+    basis: team assumption
+    sensitivity_range: [4, 10]
+  call_attempts_per_booking:
+    value: 1.5
+    unit: "average attempts per called booking (decision table I3: max 2)"
+    basis: team assumption
+    sensitivity_range: [1.0, 2.0]
+  sms_cost_per_message:
+    value: 0.05
+    unit: EUR per SMS segment
+    basis: source (current list price used as a proxy; no 2016 price found)
+    source: "Twilio outbound SMS to Portugal USD 0.0501 per segment (twilio.com/en-us/sms/pricing/pt, as of Oct 2026)"
+    sensitivity_range: [0.02, 0.10]
+  email_cost_per_message:
+    value: 0.0
+    unit: EUR per e-mail
+    basis: team assumption
+    source: "n8n self-hosted + hotel mail server: marginal cost ~0 (hosting is a fixed cost, programme_costs)"
+  reminder_channels: ["email", "sms"]                  # one I2 reminder = one e-mail + one SMS
+  uplift:
+    definition: "share of the booking's cancellations still ahead at the first contact that the contact prevents (the guest stays)"
+    value: {phone_call: 0.10, reminder: 0.03}
+    basis: team assumption
+    source: "Benchmark only: SMS reminders raised healthcare attendance from 67.8% to 78.6% (RR 1.14; Gurol-Urganci et al., 2013, Cochrane CD007458.pub3), i.e. about a third fewer no-shows. Those no-shows are mostly forgetting; hotel cancellations are mostly deliberate (median 58 days notice, notebook 01), so a far smaller effect is assumed. Target by uplift, not risk alone (Ascarza, 2018, JMR, doi 10.1509/jmr.16.0163); the true value comes from the pilot."
+    sensitivity_range: {phone_call: [0.0, 0.25], reminder: [0.0, 0.08]}
+  backfire:
+    definition: "share of contacted bookings that would have stayed but cancel because the contact reminds them of free cancellation"
+    value: {phone_call: 0.0, reminder: 0.005}
+    basis: team assumption
+    source: "99.96% of individual bookings are No Deposit (notebook 04 §10), so a reminder that links to 'manage booking' can trigger a free cancellation; a personal call is assumed not to. Measured by the pilot (holdout arm)."
+    sensitivity_range: {phone_call: [0.0, 0.01], reminder: [0.0, 0.02]}
+  backfire_handling_minutes: 8                         # = finance.handling_minutes.no_contact (processing the induced cancellation)
+  resale_scale:
+    value: 1.0
+    unit: multiplier on the simulated resale contribution of cancelled bookings
+    basis: team assumption
+    source: "Stress test of operations.resale_probability (the value of a prevented cancellation falls when more cancelled rooms are resold)"
+    sensitivity_range: [0.5, 1.5]
+  group_track:
+    flag_threshold: 0.5                                # group-rule p_cancel at or above which the revenue manager reviews the block
+    release_ask_days: 30                               # decision table G1: ask the agent to confirm or release 30 days before arrival
+    release_success_share:
+      value: 0.5
+      unit: share of late group cancellations released at the ask instead of later
+      basis: team assumption
+      sensitivity_range: [0.25, 0.75]
+    review_minutes_per_booking:
+      value: 10
+      basis: team assumption
+      sensitivity_range: [5, 20]
+    revenue_manager_cost_per_hour:
+      value: 15.0
+      unit: EUR per hour (loaded)
+      basis: team assumption
+      source: "No Lisbon 2016 revenue-manager wage found; set at 1.6x the loaded hotel wage (finance.staff_cost_per_hour)"
+      sensitivity_range: [10.0, 25.0]
+  overbooking:                                         # rule G3, notebook 05 section 5b (room type x night)
+    enabled: false
+    disabled_reason: "Exploratory retrospective capacity analysis; not an approved operational policy."
+    basis: "Exploratory 2016 OOF room-night analysis only; timing is not operationally validated; G3 stays disabled"
+    decision_lead_days_grid: [7, 14, 30]               # limit set L days before the stay night
+    safety_k_grid: [0.0, 0.5, 1.0, 1.5, 2.0]           # limit = floor(expected free rooms - k x sd)
+    cap_share: 0.05                                    # never more than 5% of the room type's rooms
+    only_when_closed: true                             # only when the room type is fully booked on the books at the decision time
+    sell_through:
+      value: 0.8
+      unit: share of approved extra rooms actually sold
+      basis: team assumption
+      sensitivity_range: [0.5, 1.0]
+    walk_cost:
+      value: 150
+      unit: EUR per walked guest-night (comparable room elsewhere, transfer, goodwill), on top of the lost stay
+      basis: team assumption
+      source: "About 1.4x the 2016 City Hotel ADR of EUR 104 (README B4); no published Lisbon relocation cost found"
+      sensitivity_range: [75, 300]
+  programme_costs:
+    implementation_one_off:
+      value: 15000
+      unit: EUR
+      basis: team assumption
+      source: "PMS / channel-manager integration, n8n workflows, dashboard, tests: ~60 analyst-developer days at the analyst_day_cost below plus contingency"
+      sensitivity_range: [8000, 30000]
+    analyst_day_cost:
+      value: 120
+      unit: EUR per day (loaded)
+      basis: team assumption
+      sensitivity_range: [90, 200]
+    training_hours_per_staff: 3
+    staff_trained: 20
+    hosting_per_month:
+      value: 40
+      unit: EUR per month (VPS for n8n + PostgreSQL)
+      basis: team assumption
+      sensitivity_range: [20, 100]
+    monitoring_days_per_month:
+      value: 2
+      unit: analyst days per month (weekly scoring checks, drift, monthly report, retraining)
+      basis: team assumption
+      sensitivity_range: [1, 4]
+    horizon_years: 3
+  pilot:
+    holdout_share: 0.5                                 # randomised before any action, stratified by tier (pilot_assignment)
+    duration_weeks: 26
+    alpha: 0.05
+    power: 0.80
+  weeks_per_year: 52
+
+  rolling_selection:
+    model_selection_cutoff: '2015-12-31'
+    validation_train_cutoff: '2015-09-30'
+    policy_selection_cutoff: '2016-12-31'
+    basis: Predeclared candidates selected on matured 2015 labels; refit before each
+      2016 weekly decision. Final F parameters selected on 2016 are never reused for
+      historical scoring.
+    candidates:
+    - model: logistic_regression
+      params:
+        C: 1.0
+    - model: xgboost
+      params:
+        n_estimators: 200
+        max_depth: 3
+        learning_rate: 0.05
+    - model: xgboost
+      params:
+        n_estimators: 200
+        max_depth: 2
+        learning_rate: 0.05
+  call_schedule:
+    start_day: 0
+    window_days: 7
+    min_days_before_arrival: 8
+    capacity_unit: booking-level call tasks, average attempts included in task cost
+    basis: 'Team operational assumption: start on decision day, 7 calendar days, no
+      automatic overflow'
+  roi_definition: Net after variable intervention, one-off and running costs / total
+    of ALL these costs over the same horizon
+  price_adjustment:        # README §6.5 extended scenario S6 (src/scenario_capacity.py); illustrative only
+    elasticity:
+      value: -0.8
+      unit: '% change in room-nights sold per +1% price, per (stay date, room type)'
+      basis: team assumption
+      source: 'No price-variation data in the extract to estimate it; flagged team assumption.
+        The sensitivity range spans inelastic to elastic demand.'
+      sensitivity_range: [-0.4, -1.5]
+    price_step:
+      value: 0.05
+      unit: share of the rate (raise on high-demand cells, cut on low-demand cells)
+      basis: team assumption
+      source: 'Small step a revenue manager can apply within rate rules (decision table G5); illustrative.'
+      sensitivity_range: [0.03, 0.10]
+    low_demand_occupancy_threshold:
+      value: 0.60
+      unit: occupancy of (date, room type) below which the rate is cut
+      basis: team assumption
+      source: 'Mirror of operations.high_demand_occupancy_threshold (0.85) for slack nights; flagged team assumption.'
+    note: Applied to the realised demand of each cell as if the rate had been set before booking. Not a
+      pricing model; shows the direction and size of RevPAR / ADR effects under the stated elasticity.

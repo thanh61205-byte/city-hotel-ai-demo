@@ -1,0 +1,105 @@
+{
+  "name": "G2 Hotel - Approval & execution guard demo (no emails)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "g2-hotel-approval-demo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "8e56d8b0-bba4-451a-9971-caf3a5b16b44",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "c037759c-7b8e-4627-ab79-d61cf2816246"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node \"Approval & execution-time guard\". Mirrors dashboard/state_store.py.\nconst b = $input.first().json.body ?? {};\nconst ACTIONS = new Set(['confirm_email','reminder','phone_call','offer_change','request_deposit',\n  'price_adjustment','capacity_allocation','resale','overbooking']);\nconst SENSITIVE = new Set(['offer_change','request_deposit','price_adjustment',\n  'capacity_allocation','resale','overbooking']);\nconst GUEST = new Set(['confirm_email','reminder','phone_call','offer_change','request_deposit']);\nconst isInt = v => v !== null && v !== undefined && v !== '' && Number.isInteger(Number(v));\nconst reasons = [];\nif (b.mode !== 'demo_no_guest_contact') reasons.push('mode must be demo_no_guest_contact');\nif (!ACTIONS.has(b.action_type)) reasons.push('unknown action_type');\n// This workflow version supports no operational G3 policy, even with approval.\nif (b.action_type === 'overbooking') reasons.push('G3 overbooking is disabled by policy');\nif (!isInt(b.action_id)) reasons.push('action_id must be an integer');\nconst sensitive = SENSITIVE.has(b.action_type);\nif (sensitive && b.needs_approval !== true) reasons.push('sensitive action must need approval');\nconst status = String(b.approval_status ?? '');\nconst approved = status === 'approved' || (status === 'auto' && !sensitive && b.needs_approval === false);\nif (!approved) reasons.push('action is not approved (pending, rejected or invalid auto)');\nif (GUEST.has(b.action_type)) {\n  if (!isInt(b.booking_id)) reasons.push('booking_id required for a guest action');\n  const p = b.precheck ?? {};\n  for (const k of ['consent_confirmed', 'no_open_conflict', 'booking_active']) {\n    if (p[k] !== true) reasons.push(`execution-time check not passed: ${k}`);\n  }\n} else if (!b.stay_date || !b.room_type) {\n  reasons.push('stay_date and room_type required for a date x room-type action');\n}\nif (b.scheduled_at && (!b.as_of || String(b.as_of) < String(b.scheduled_at))) {\n  reasons.push(`not due yet (scheduled ${b.scheduled_at})`);\n}\nconst dayNumber = value => {\n  if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return NaN;\n  const parsed = Date.parse(value + 'T00:00:00Z');\n  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value\n    ? parsed / 86400000 : NaN;\n};\nif (b.action_type === 'phone_call') {\n  const c = b.execution_policy?.call_schedule ?? {};\n  const limitsOK = ['start_day', 'window_days', 'min_days_before_arrival']\n    .every(k => Number.isInteger(c[k])) &&\n    c.start_day >= 0 && c.start_day < c.window_days && c.min_days_before_arrival >= 8;\n  const today = dayNumber(b.as_of), scored = dayNumber(b.known_from);\n  const arrival = dayNumber(b.arrival_date), decision = dayNumber(b.decision_at);\n  if (!limitsOK || ![today, scored, arrival, decision].every(Number.isFinite)) {\n    reasons.push('G1 phone call requires valid policy, original score time, decision and arrival dates');\n  } else {\n    if (today < decision || scored > decision) reasons.push('invalid phone-call decision timeline');\n    if (today - scored < c.start_day || today - scored >= c.window_days) {\n      reasons.push('outside G1 call window: manual review required');\n    }\n    if (arrival - today < c.min_days_before_arrival) {\n      reasons.push('insufficient days before arrival for G1 call: manual review required');\n    }\n  }\n}\n// Trusted state sent by the G2 service (production: read it from PostgreSQL by action_id).\nif (b.already_executed !== false) reasons.push('action already executed or state unknown');\nconst FOLLOW_UPS = new Set(['confirm_email', 'reminder', 'phone_call']);\nconst response = b.guest_response ?? null;\nif (response === 'cancelled' || (response && FOLLOW_UPS.has(b.action_type))) {\n  reasons.push(`guest already responded (${response}): follow-ups stopped`);\n}\nif (b.action_type === 'offer_change' &&\n    (response !== 'requested_change' || b.guest_response_action_type !== 'phone_call')) {\n  reasons.push('I4 needs the latest response to be a change request from a phone call');\n}\nif (b.action_type === 'offer_change' &&\n    (!isInt(b.offer_basis_event_id) || Number(b.offer_basis_event_id) !== Number(b.latest_response_event_id))) {\n  reasons.push('I4 offer was approved for an earlier change request: a new offer and approval are needed');\n}\nreturn [{ json: { accepted: reasons.length === 0, reasons, body: b } }];\n"
+      },
+      "id": "3d7131e0-08d7-49d9-b0ec-a1623b71b05a",
+      "name": "Approval & execution-time guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node \"Mock dispatch (nothing sent)\". Builds what WOULD be sent; sends nothing.\nconst g = $input.first().json;\nconst b = g.body ?? {};\nif (!g.accepted) {\n  return [{ json: { action_id: b.action_id ?? null, accepted: false,\n    status: 'BLOCKED_BY_GUARD', reasons: g.reasons, executed: false } }];\n}\nlet dispatch;\nswitch (b.action_type) {\n  case 'confirm_email':\n  case 'reminder':\n    dispatch = { type: 'email_preview',\n      template: b.action_type === 'reminder' ? 'pre_arrival_reminder' : 'booking_confirmation',\n      to: 'NOT SENT: the research data has no guest address',\n      stop_if: 'guest responds or cancels' };\n    break;\n  case 'phone_call':\n    dispatch = { type: 'staff_task', queue: 'Reservations follow-up',\n      note: 'Call attempt (max 2 per booking); record the guest response' };\n    break;\n  default:\n    dispatch = { type: 'approved_change_notice', to: 'Revenue manager (mock)',\n      note: 'Approved change to carry out by staff; this workflow changes no PMS, price or inventory' };\n}\nreturn [{ json: { action_id: b.action_id, booking_id: b.booking_id ?? null, accepted: true,\n  status: 'DEMO_ACCEPTED_NO_ACTION', dispatch, executed: false } }];\n"
+      },
+      "id": "6a0f4c52-1f7e-4d4b-9b0e-2c8d3e7f9a11",
+      "name": "Mock dispatch (nothing sent)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "3b9c0280-93d0-4e2f-80ec-a5b05641ed79",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Approval & execution-time guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval & execution-time guard": {
+      "main": [
+        [
+          {
+            "node": "Mock dispatch (nothing sent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock dispatch (nothing sent)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": []
+}

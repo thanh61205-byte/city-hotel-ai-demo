@@ -1,0 +1,45 @@
+{
+  "queue_2017_bookings": 12102,
+  "weeks_2017": 35,
+  "annualisation_factor": 1.4857142857142858,
+  "chosen_policy": {
+    "high_share": 0.15,
+    "contact_share": 0.6,
+    "high_rank": "p_x_gross"
+  },
+  "S4_net_per_year": 30389.582524624766,
+  "S4_roi_3y": 1.725681390154312,
+  "S4_payback_months": 6.909762658370647,
+  "one_off": 15564.0,
+  "running": 3360,
+  "volume_factor_2016": 1.2995216386284836,
+  "queue_kpi_top20": {
+    "precision_2016": 0.347636815920398,
+    "lift_2016": 1.3060484844651932,
+    "precision_2017": 0.4107142857142857,
+    "lift_2017": 1.708063328424153
+  },
+  "calls_per_day_2017": {
+    "mean_on_scheduled_days": 16.452830188679247,
+    "max": 20.0
+  },
+  "call_capacity_check": {
+    "capacity_unit": "booking-level call tasks, average attempts included in task cost",
+    "max_scheduled_call_tasks_per_day": 20,
+    "unscheduled_call_tasks": 17,
+    "S4_net_per_year_simulated": 30389.582524624766,
+    "S4_net_per_year_calls_from_decision_day": 30389.582524624766,
+    "S4_net_per_year_calls_from_next_day": 27211.348348624764
+  },
+  "overbooking": {
+    "enabled": false,
+    "analysis_only": true,
+    "policy": {
+      "L": 30,
+      "k": 0.0
+    },
+    "net_2017": -454.60943738879996,
+    "net_per_year": -682.8495664481975,
+    "walks_2017": 4.6000128
+  }
+}

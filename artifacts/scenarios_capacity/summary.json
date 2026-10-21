@@ -1,0 +1,93 @@
+{
+  "horizon": "stays 2017-01-01..2017-08-31 (sellable room types)",
+  "base_matches_inventory_rooms_sold": true,
+  "g1": {
+    "prevented_cancellations_expected": 85.56,
+    "induced_cancellations_expected": 17.380000000000003,
+    "intervention_cost_eur": 2765.53,
+    "g1_net_eur_notebook05": 20454.52669926667
+  },
+  "group_track": {
+    "group_bookings_flagged": 195,
+    "late_cancellations_flagged": 37,
+    "released_room_nights_expected": 25.525,
+    "intervention_cost_eur": 487.5
+  },
+  "capped_room_nights": {
+    "S4": 4.530857420357401,
+    "S5": 0.0
+  },
+  "price_adjustment": {
+    "elasticity": -0.8,
+    "price_step": 0.05,
+    "cells_raised": 579,
+    "cells_cut": 993,
+    "cells_total": 1944,
+    "basis": "team assumption",
+    "reading": "Revenue in a cell moves by about step x (1 + elasticity): a raise pays only while demand is inelastic (elasticity above -1), a cut only while it is elastic. The sign of S6 therefore rests on an elasticity the data cannot estimate (see price_sensitivity.csv); part of its contribution is room cost saved on fewer sold nights."
+  },
+  "contribution_inputs": {
+    "commission_rate_median": 0.18,
+    "room_cost_per_night_median": 27.07,
+    "note": "Variable intervention cost only; one-off and running costs are in business_case.csv."
+  },
+  "scenarios": [
+    {
+      "scenario": "S0 Actual 2017",
+      "room_nights_sold": 48182.0,
+      "available_room_nights": 61236.0,
+      "occupancy": 0.7868247436148671,
+      "room_revenue_eur": 5635120.85,
+      "adr_eur": 116.95489705699222,
+      "revpar_eur": 92.02300689137108,
+      "delta_room_nights": 0.0,
+      "delta_room_revenue_eur": 0.0,
+      "delta_revpar_eur": 0.0,
+      "intervention_cost_eur": 0.0,
+      "contribution_net_eur": 0.0
+    },
+    {
+      "scenario": "S4 G1 policy",
+      "room_nights_sold": 48370.613754051505,
+      "available_room_nights": 61236.0,
+      "occupancy": 0.7899048558699377,
+      "room_revenue_eur": 5669793.206086179,
+      "adr_eur": 117.21565566472225,
+      "revpar_eur": 92.58921559354268,
+      "delta_room_nights": 188.61375405150466,
+      "delta_room_revenue_eur": 34672.356086179614,
+      "delta_revpar_eur": 0.5662087021715934,
+      "intervention_cost_eur": 2765.53,
+      "contribution_net_eur": 20560.027668493054
+    },
+    {
+      "scenario": "S5 G1 + group early release",
+      "room_nights_sold": 48396.1387540515,
+      "available_room_nights": 61236.0,
+      "occupancy": 0.7903216858392367,
+      "room_revenue_eur": 5672192.246086179,
+      "adr_eur": 117.20340490203529,
+      "revpar_eur": 92.62839254827519,
+      "delta_room_nights": 214.13875405149884,
+      "delta_room_revenue_eur": 37071.39608617965,
+      "delta_revpar_eur": 0.6053856569041045,
+      "intervention_cost_eur": 3253.03,
+      "contribution_net_eur": 21348.778718493246
+    },
+    {
+      "scenario": "S6 S5 + price adjustment",
+      "room_nights_sold": 47003.54330898399,
+      "available_room_nights": 61236.0,
+      "occupancy": 0.7675802356291069,
+      "room_revenue_eur": 5704596.307256352,
+      "adr_eur": 121.36523984492905,
+      "revpar_eur": 93.15755939735372,
+      "delta_room_nights": -1178.4566910160065,
+      "delta_room_revenue_eur": 69475.45725635253,
+      "delta_revpar_eur": 1.13455250598264,
+      "intervention_cost_eur": 3253.03,
+      "contribution_net_eur": 85617.66757601238
+    }
+  ],
+  "note": "Expected values under team assumptions; illustrative, not a forecast. S6 applies a labelled elasticity to realised demand and is not a pricing model. G3 overbooking stays disabled."
+}

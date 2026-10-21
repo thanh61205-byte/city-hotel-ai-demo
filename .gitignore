@@ -1,0 +1,36 @@
+.DS_Store
+Thumbs.db
+# Office lock files
+~$*
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+# G2 dashboard demo state (delete to reset)
+data/outputs/*.sqlite
+data/outputs/*.sqlite-*
+data/outputs/**/*.sqlite
+data/outputs/**/*.sqlite-*
+# Local review environments, extracted copies, database clusters and caches
+/review_work/
+# Local audit reports, logs, reproduction scripts and evidence (not deliverables)
+/output/review/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/venv/
+# Local packaged copies (source files belong in the repository)
+/*.zip
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+# Local n8n for run_demo (installed on first run, holds its own database)
+/.n8n-local/
+/.n8n-manual/
+/.demo-run.lock
+# AI email: local offline store, evaluation runs and DB backups (may hold test addresses)
+/output/ai_email_eval/
+/output/backup/

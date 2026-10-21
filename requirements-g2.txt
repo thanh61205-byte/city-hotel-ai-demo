@@ -1,0 +1,11 @@
+# G2 dashboard only (Python 3.11+). Kept apart from requirements.txt, whose hash is recorded
+# in the stage-F manifest. Install: python -m pip install -r requirements-g2.txt
+streamlit>=1.66,<2   # alert titles, chart alt text and bordered metrics used by the dashboard
+pandas>=2.1,<3
+# Imported by the dashboard directly (also Streamlit dependencies; listed so a Streamlit
+# release that drops them cannot break the charts).
+altair>=5,<7
+numpy>=1.26,<3
+requests>=2.31,<3
+# Optional: shared PostgreSQL state store (G2_DB_URL=postgresql://...)
+psycopg[binary]>=3.2,<4

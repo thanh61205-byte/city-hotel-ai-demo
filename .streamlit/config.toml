@@ -1,0 +1,36 @@
+# G2 dashboard theme. Streamlit reads this file from the folder it is launched in: the
+# launchers (run_demo.*) start from the repo root. Colour roles are mirrored in dashboard/ui.py
+# (TOKENS) for the charts and the replay clock; change both together.
+
+[client]
+toolbarMode = "minimal"          # no "Deploy" button (Community Cloud reads this file from the repo root too)
+
+[theme]
+base = "light"
+primaryColor = "#2457A6"         # azulejo blue: the one accent (buttons, replay date, links)
+backgroundColor = "#F6F8FB"      # paper
+secondaryBackgroundColor = "#E9EEF5"
+textColor = "#14213D"            # ink
+borderColor = "#D5DCE6"
+dataframeBorderColor = "#D5DCE6"
+dataframeHeaderBackgroundColor = "#EEF2F7"
+showWidgetBorder = true
+linkColor = "#2457A6"
+# Status colours: red = high tier / blocked, yellow = medium tier / warning.
+redColor = "#B42318"
+orangeColor = "#B7791F"
+yellowColor = "#B7791F"
+blueColor = "#2457A6"
+greenColor = "#2F7D4F"
+grayColor = "#64748B"
+# Public Sans from Google Fonts; falls back to the system sans-serif when offline.
+font = "Public Sans:https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap, sans-serif"
+headingFontWeights = [700, 650, 600, 600, 600, 600]
+headingFontSizes = ["2rem", "1.5rem", "1.25rem"]
+metricValueFontSize = "1.875rem"
+baseRadius = "0.375rem"
+chartCategoricalColors = ["#2457A6", "#8FA9CF", "#14213D", "#B7791F", "#64748B", "#2F7D4F"]
+
+[theme.sidebar]
+backgroundColor = "#EDF1F7"
+secondaryBackgroundColor = "#FFFFFF"

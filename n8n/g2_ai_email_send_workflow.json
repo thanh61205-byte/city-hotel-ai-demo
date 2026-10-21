@@ -1,0 +1,600 @@
+{
+  "name": "G2 AI email B - send approved DEMO email (mock | team test inbox)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "g2-ai-email-send",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "669f93e5-4461-570a-beac-c1c9804839f9",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "6890983a-4026-53b8-b5be-fdc1398f8d43",
+      "notes": "Header Auth credential: header X-G2-Webhook-Token, value = G2_AI_WEBHOOK_TOKEN (Streamlit secret). Use the Production URL after publishing."
+    },
+    {
+      "parameters": {
+        "jsCode": "const SENDER_REF = \"gmail:g2-team-test-sender\";\n// Workflow B, node \"Validate send request\". Only the job ID and workspace are used. Anything\n// else in the payload (subject, body, recipient, approved: true, ...) is ignored and reported:\n// the email, recipient and approval are read from the database by the claim functions.\n// SENDER_REF (prepended by build_workflows.py) names the Gmail credential this workflow sends\n// with; the approval binds it, so changing the sender requires a new approval.\nconst b = $input.first().json.body ?? {};\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst WS = /^[a-z0-9][a-z0-9_-]{0,62}$/;\nconst reasons = [];\nif (!UUID.test(String(b.job_id ?? ''))) reasons.push('job_id must be a UUID');\nif (!WS.test(String(b.workspace_id ?? ''))) reasons.push('workspace_id missing or invalid');\nconst ignored = Object.keys(b).filter(k => !['job_id', 'workspace_id'].includes(k));\nreturn [{ json: { valid: reasons.length === 0, reasons, job_id: String(b.job_id ?? ''),\n  workspace_id: String(b.workspace_id ?? ''), sender_ref: SENDER_REF, ignored_fields: ignored,\n  response: { job_id: b.job_id ?? null, status: 'invalid_request', reasons, source: 'n8n' } } }];\n"
+      },
+      "id": "a09c6cc2-0ab8-5e45-aee2-f49cee2c4f10",
+      "name": "Validate send request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.valid ? 1 : 0 }}"
+      },
+      "id": "709d823f-acbf-546e-ab36-d260e28755bf",
+      "name": "Valid send request?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"... response\" nodes: answer with the `response` object prepared by the previous node.\nreturn [{ json: $input.first().json.response }];\n"
+      },
+      "id": "dbe7a496-cea9-540b-a757-b6570b7df13b",
+      "name": "Invalid send response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "9c3066e5-1948-523b-9fa7-7e0d2864d60d",
+      "name": "Respond: invalid send request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT g2_ai_v1.claim_send_job($1::uuid, $2::text, 'n8n', $3::text) AS r;",
+        "options": {
+          "queryReplacement": "={{ [ $json.job_id, $json.workspace_id, $json.sender_ref ] }}"
+        }
+      },
+      "id": "7d6cf49b-27cc-5693-97ff-090d8ac312d5",
+      "name": "Claim send job (atomic)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "notes": "Credential: Postgres role g2_ai_n8n (EXECUTE on g2_ai_v1 workflow functions only), SSL required."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B, node \"Check claim\". Input: g2_ai_v1.claim_send_job(). Only a claimed job goes on;\n// already finished, in progress, refused or unknown jobs are answered from the database.\nconst v = $('Validate send request').first().json;\nconst r = $input.first().json.r ?? {};\nif (r.status !== 'claimed') {\n  return [{ json: { route: 'respond', response: { job_id: v.job_id, status: r.status ?? 'error',\n    job_status: r.job_status ?? null, reason: r.reason ?? null, provider_message_id: r.provider_message_id ?? null,\n    detail: r.detail ?? null, ignored_fields: v.ignored_fields, source: 'database' } } }];\n}\nreturn [{ json: { route: 'dispatch', job_id: v.job_id, workspace_id: v.workspace_id,\n  lease_token: r.lease_token, delivery_mode: r.delivery_mode, ignored_fields: v.ignored_fields } }];\n"
+      },
+      "id": "792e065c-ed76-5fda-bf78-dedb241988bd",
+      "name": "Check claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.route === 'dispatch' ? 1 : 0 }}"
+      },
+      "id": "ee5693ad-49ca-58d3-9ce3-1e283d984ccd",
+      "name": "Claimed?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"... response\" nodes: answer with the `response` object prepared by the previous node.\nreturn [{ json: $input.first().json.response }];\n"
+      },
+      "id": "eb836312-947b-5deb-ab40-63df986de4d4",
+      "name": "Claim state response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "e0d8cac0-a2cd-56cf-a111-e64e31543e15",
+      "name": "Respond: claim state",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT g2_ai_v1.begin_dispatch($1::uuid, $2::uuid) AS r;",
+        "options": {
+          "queryReplacement": "={{ [ $json.job_id, $json.lease_token ] }}"
+        }
+      },
+      "id": "edfbb716-d36e-5732-9afe-d3f62197f61e",
+      "name": "Begin dispatch (re-check approval)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1320,
+        340
+      ],
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "notes": "Credential: Postgres role g2_ai_n8n (EXECUTE on g2_ai_v1 workflow functions only), SSL required."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B, node \"Check dispatch\". Input: g2_ai_v1.begin_dispatch(): the job is now\n// 'dispatching' (committed) and r holds the approved email read from the database.\n// Routes: respond (refused before dispatch), finish (known failure, nothing sent), mock, gmail.\nconst c = $('Check claim').first().json;\nconst r = $input.first().json.r ?? {};\nconst base = { job_id: c.job_id, lease_token: c.lease_token };\nif (r.ok !== true) {\n  return [{ json: { ...base, route: 'respond', response: { job_id: c.job_id, status: 'refused',\n    job_status: r.job_status ?? null, reason: r.reason ?? null, source: 'database' } } }];\n}\nconst problems = [];\nif (!String(r.subject ?? '').startsWith('[DEMO] ')) problems.push('subject lacks the [DEMO] prefix');\nif (!String(r.body ?? '').includes('DEMO')) problems.push('body lacks the DEMO notice');\nif (r.delivery_mode === 'team_test_email' && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(String(r.to ?? ''))) {\n  problems.push('recipient address invalid');\n}\nif (problems.length) {\n  return [{ json: { ...base, route: 'finish', outcome: 'failed', provider_message_id: null,\n    detail: 'Not sent: ' + problems.join('; ') } }];\n}\nreturn [{ json: { ...base, route: r.delivery_mode === 'mock' ? 'mock' : 'gmail', to: r.to,\n  subject: r.subject, body: r.body, content_hash: r.content_hash } }];\n"
+      },
+      "id": "a1604d29-c073-579d-beba-bf800eb0c5e8",
+      "name": "Check dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 4,
+        "output": "={{ ({ respond: 0, finish: 1, mock: 2, gmail: 3 })[$json.route] }}"
+      },
+      "id": "e8a2e8bf-b4de-5934-a6e7-07d37915a31f",
+      "name": "Delivery mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1760,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"... response\" nodes: answer with the `response` object prepared by the previous node.\nreturn [{ json: $input.first().json.response }];\n"
+      },
+      "id": "a915206b-eb79-5ddf-905e-b27f6140927c",
+      "name": "Dispatch refused response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a15fc099-684f-576e-930d-477ec150f6c7",
+      "name": "Respond: dispatch refused",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B, node \"Simulate send (no email)\": delivery_mode mock. Nothing leaves n8n.\nconst d = $input.first().json;\nconst run = typeof $execution !== 'undefined' && $execution?.id ? String($execution.id) : 'run';\nreturn [{ json: { job_id: d.job_id, lease_token: d.lease_token, outcome: 'simulated',\n  provider_message_id: `n8n-mock-${String(d.job_id).slice(0, 8)}-${run}`,\n  detail: 'Simulated by n8n workflow B: no email sent' } }];\n"
+      },
+      "id": "fe4efe3f-4e87-5fa1-9070-e5c13cf5e2f0",
+      "name": "Simulate send (no email)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0350a535-cb6e-57fc-932b-36653a199410",
+      "name": "Send test email (Gmail Send)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        540
+      ],
+      "retryOnFail": false,
+      "onError": "continueErrorOutput",
+      "notes": "Gmail Send (not Reply: sample messages have no Gmail thread). Credential: Gmail OAuth2, managed \"Sign in with Google\" on n8n Cloud. Retry OFF: never rerun this node alone."
+    },
+    {
+      "parameters": {
+        "jsCode": "const GMAIL_BRANCH = \"ok\";\n// Workflow B, nodes \"Gmail accepted\" / \"Gmail error\" (GMAIL_BRANCH prepended: 'ok' | 'error').\n// Gmail returned a message ID -> provider_accepted (the provider took it; delivery to the inbox\n// is confirmed only by a tester). An error that proves Gmail refused before sending (auth /\n// credential / invalid recipient, HTTP 400/401/403) -> failed. Anything else (timeout, 5xx,\n// network) -> unknown: the email may have left, so it is never resent automatically.\nconst d = $('Check dispatch').first().json;\nconst j = $input.first().json;\nlet outcome, id = null, detail;\nif (GMAIL_BRANCH === 'ok') {\n  id = j.id ?? j.messageId ?? null;\n  outcome = id ? 'provider_accepted' : 'unknown';\n  detail = id ? 'Accepted by Gmail (receipt not verified yet)' : 'Gmail answered without a message ID';\n} else {\n  const msg = String(j.error?.message ?? j.error?.description ?? j.error ?? j.message ?? 'Gmail error');\n  const code = Number(j.error?.httpCode ?? j.error?.status ?? j.error?.statusCode ?? NaN);\n  const refused = [400, 401, 403].includes(code) ||\n    /invalid_grant|unauthori[sz]ed|credential|invalid to header|invalid recipient|forbidden|status code (400|401|403)(?!\\d)/i.test(msg);\n  outcome = refused ? 'failed' : 'unknown';\n  detail = (refused ? 'Gmail refused before sending: ' : 'Gmail result unknown (may have been sent): ') + msg.slice(0, 400);\n}\nreturn [{ json: { job_id: d.job_id, lease_token: d.lease_token, outcome, provider_message_id: id, detail } }];\n"
+      },
+      "id": "268e8ced-6ac3-53ea-a26b-747b6fadfc53",
+      "name": "Gmail accepted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GMAIL_BRANCH = \"error\";\n// Workflow B, nodes \"Gmail accepted\" / \"Gmail error\" (GMAIL_BRANCH prepended: 'ok' | 'error').\n// Gmail returned a message ID -> provider_accepted (the provider took it; delivery to the inbox\n// is confirmed only by a tester). An error that proves Gmail refused before sending (auth /\n// credential / invalid recipient, HTTP 400/401/403) -> failed. Anything else (timeout, 5xx,\n// network) -> unknown: the email may have left, so it is never resent automatically.\nconst d = $('Check dispatch').first().json;\nconst j = $input.first().json;\nlet outcome, id = null, detail;\nif (GMAIL_BRANCH === 'ok') {\n  id = j.id ?? j.messageId ?? null;\n  outcome = id ? 'provider_accepted' : 'unknown';\n  detail = id ? 'Accepted by Gmail (receipt not verified yet)' : 'Gmail answered without a message ID';\n} else {\n  const msg = String(j.error?.message ?? j.error?.description ?? j.error ?? j.message ?? 'Gmail error');\n  const code = Number(j.error?.httpCode ?? j.error?.status ?? j.error?.statusCode ?? NaN);\n  const refused = [400, 401, 403].includes(code) ||\n    /invalid_grant|unauthori[sz]ed|credential|invalid to header|invalid recipient|forbidden|status code (400|401|403)(?!\\d)/i.test(msg);\n  outcome = refused ? 'failed' : 'unknown';\n  detail = (refused ? 'Gmail refused before sending: ' : 'Gmail result unknown (may have been sent): ') + msg.slice(0, 400);\n}\nreturn [{ json: { job_id: d.job_id, lease_token: d.lease_token, outcome, provider_message_id: id, detail } }];\n"
+      },
+      "id": "f9cc04b4-fa92-530a-b8c3-8ee3e88c2bd3",
+      "name": "Gmail error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT g2_ai_v1.finish_dispatch($1::uuid, $2::uuid, $3::text, $4::text, $5::text) AS r;",
+        "options": {
+          "queryReplacement": "={{ [ $json.job_id, $json.lease_token, $json.outcome, $json.provider_message_id, $json.detail ] }}"
+        }
+      },
+      "id": "d46bb5ee-2b5b-5279-9ad4-0336f2d20923",
+      "name": "Store send result before responding",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2420,
+        340
+      ],
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "notes": "Credential: Postgres role g2_ai_n8n (EXECUTE on g2_ai_v1 workflow functions only), SSL required."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B, node \"Send result response\": what finish_dispatch() stored (Streamlit reads the\n// database by job ID anyway). If storing failed, the job stays 'dispatching' and becomes\n// 'unknown' after 5 minutes: it is reconciled, never resent.\nconst r = $input.first().json.r ?? {};\nconst c = $('Check claim').first().json;\nreturn [{ json: { job_id: c.job_id, status: r.stored === true ? 'stored' : 'not_stored',\n  job_status: r.job_status ?? null, provider_message_id: r.provider_message_id ?? null,\n  detail: r.detail ?? r.reason ?? null, ignored_fields: c.ignored_fields ?? [], source: 'database' } }];\n"
+      },
+      "id": "eae876e2-7357-5e2e-9fc0-3a86be986f91",
+      "name": "Send result response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "50d99862-5cf2-582e-bd62-a020f525e3db",
+      "name": "Respond: send result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2860,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate send request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate send request": {
+      "main": [
+        [
+          {
+            "node": "Valid send request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid send request?": {
+      "main": [
+        [
+          {
+            "node": "Invalid send response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Claim send job (atomic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid send response": {
+      "main": [
+        [
+          {
+            "node": "Respond: invalid send request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim send job (atomic)": {
+      "main": [
+        [
+          {
+            "node": "Check claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check claim": {
+      "main": [
+        [
+          {
+            "node": "Claimed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claimed?": {
+      "main": [
+        [
+          {
+            "node": "Claim state response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Begin dispatch (re-check approval)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim state response": {
+      "main": [
+        [
+          {
+            "node": "Respond: claim state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Begin dispatch (re-check approval)": {
+      "main": [
+        [
+          {
+            "node": "Check dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check dispatch": {
+      "main": [
+        [
+          {
+            "node": "Delivery mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delivery mode": {
+      "main": [
+        [
+          {
+            "node": "Dispatch refused response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store send result before responding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulate send (no email)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send test email (Gmail Send)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch refused response": {
+      "main": [
+        [
+          {
+            "node": "Respond: dispatch refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate send (no email)": {
+      "main": [
+        [
+          {
+            "node": "Store send result before responding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send test email (Gmail Send)": {
+      "main": [
+        [
+          {
+            "node": "Gmail accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail accepted": {
+      "main": [
+        [
+          {
+            "node": "Store send result before responding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail error": {
+      "main": [
+        [
+          {
+            "node": "Store send result before responding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store send result before responding": {
+      "main": [
+        [
+          {
+            "node": "Send result response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send result response": {
+      "main": [
+        [
+          {
+            "node": "Respond: send result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 90
+  },
+  "active": false,
+  "tags": []
+}

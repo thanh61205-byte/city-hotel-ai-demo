@@ -1,0 +1,10 @@
+,value
+nights,609.0
+max_hotel_occupancy,0.8968253968253969
+nights_occupancy_ge_85pct,227.0
+min_free_rooms_any_night,26.0
+type_A_nights_more_reservations_than_rooms_7d_before,198.0
+type_A_mean_reservations_on_those_nights,154.56060606060606
+type_A_rooms,146.0
+type_A_mean_free_rooms_on_those_nights,9.242424242424242
+reserved_A_stays_moved_to_another_type,0.14746973924563903

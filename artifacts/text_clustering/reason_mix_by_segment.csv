@@ -1,0 +1,9 @@
+market_segment,change of plans,duplicate booking,found better price,group size change,mixed / unspecified,other,travel restriction or illness
+Aviation,0.3636,0.1515,0.2424,0.0,0.0606,0.1212,0.0606
+Complementary,0.4048,0.0952,0.119,0.0476,0.0952,0.1667,0.0714
+Corporate,0.3261,0.2246,0.1522,0.0266,0.0507,0.1498,0.07
+Direct,0.346,0.1159,0.2095,0.0365,0.0349,0.1714,0.0857
+Groups,0.3018,0.1798,0.1322,0.1541,0.0717,0.1035,0.0568
+Offline TA/TO,0.3433,0.2117,0.1663,0.0312,0.0386,0.1361,0.0729
+Online TA,0.344,0.1033,0.2565,0.0347,0.0437,0.1407,0.077
+Undefined,1.0,0.0,0.0,0.0,0.0,0.0,0.0

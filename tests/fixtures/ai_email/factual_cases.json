@@ -1,0 +1,28 @@
+{
+  "note": "Factual-correctness cases for reminder and booking_confirmation (docs/SPEC_AI_N8N_VI.md §8). Scored on facts / sources / completeness, separately from the intent macro-F1. 'booking' and 'schedule' override the base case; expected_fact_blockers are computed by the server from the sources, whatever the draft says. For live AI runs, every case must also give a draft with no content blockers (no invented date, price, claim or link).",
+  "base": {
+    "business_as_of": "2017-05-01",
+    "booking": {"booking_id": 27767, "arrival_date": "2017-05-08", "room_type_code": "A", "known_from": "2017-01-01"},
+    "schedule": [
+      {"booking_id": 27767, "decision_at": "2017-01-01", "scheduled_at": "2017-01-01", "rule": "I1", "action_type": "confirm_email", "schedule_reason": "standard confirmation", "message_no": 1},
+      {"booking_id": 27767, "decision_at": "2017-01-01", "scheduled_at": "2017-05-01", "rule": "I1", "action_type": "reminder", "schedule_reason": "standard reminder 7 days before arrival", "message_no": 2}
+    ],
+    "g2_stop_outcome": null
+  },
+  "cases": [
+    {"id": "r1_full", "email_type": "reminder", "expected_fact_blockers": []},
+    {"id": "r2_no_room_code", "email_type": "reminder", "booking": {"room_type_code": null}, "expected_fact_blockers": [], "expected_missing_contains": "Room type code"},
+    {"id": "r3_missing_arrival", "email_type": "reminder", "booking": {"arrival_date": null}, "expected_fact_blockers": ["missing_arrival_date"]},
+    {"id": "r4_invalid_arrival", "email_type": "reminder", "booking": {"arrival_date": "2017-02-30"}, "expected_fact_blockers": ["missing_arrival_date"]},
+    {"id": "r5_no_g1_reminder", "email_type": "reminder", "schedule": [], "expected_fact_blockers": ["no_g1_reminder"]},
+    {"id": "r6_arrival_reached", "email_type": "reminder", "booking": {"arrival_date": "2017-05-01"}, "expected_fact_blockers": ["arrival_reached"]},
+    {"id": "r7_cancelled_in_store", "email_type": "reminder", "g2_stop_outcome": "cancelled", "expected_fact_blockers": ["cancelled_in_store"]},
+    {"id": "b1_full", "email_type": "booking_confirmation", "expected_fact_blockers": []},
+    {"id": "b2_no_schedule_ok", "email_type": "booking_confirmation", "schedule": [], "expected_fact_blockers": []},
+    {"id": "b3_missing_booking_id", "email_type": "booking_confirmation", "booking": {"booking_id": null}, "expected_fact_blockers": ["missing_booking_id"]},
+    {"id": "b4_missing_arrival", "email_type": "booking_confirmation", "booking": {"arrival_date": null}, "expected_fact_blockers": ["missing_arrival_date"]},
+    {"id": "b5_arrival_passed", "email_type": "booking_confirmation", "booking": {"arrival_date": "2017-04-30"}, "expected_fact_blockers": ["arrival_reached"]},
+    {"id": "b6_cancelled_in_store", "email_type": "booking_confirmation", "g2_stop_outcome": "cancelled", "expected_fact_blockers": ["cancelled_in_store"]},
+    {"id": "b7_no_room_code", "email_type": "booking_confirmation", "booking": {"room_type_code": null}, "expected_fact_blockers": []}
+  ]
+}

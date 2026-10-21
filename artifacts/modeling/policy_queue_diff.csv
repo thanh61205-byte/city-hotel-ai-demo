@@ -1,0 +1,5 @@
+policy,metric,model_minus_rule,ci_low,ci_high,significant
+top 20% per weekly batch (operational queue),precision,0.05772425249169433,0.021424673803454038,0.08746463800483896,True
+top 20% per weekly batch (operational queue),tp,139.0,48.475,232.0,True
+top 5% per weekly batch (operational queue),precision,0.07155025553662692,0.007397837113599392,0.1308627717391304,True
+top 5% per weekly batch (operational queue),tp,42.0,4.0,80.52499999999998,True

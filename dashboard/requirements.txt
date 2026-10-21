@@ -1,0 +1,10 @@
+# Streamlit Community Cloud dependency file (entrypoint dashboard/app.py: Cloud reads the
+# requirements file next to the entrypoint first). Same packages as requirements-g2.txt;
+# the training stack in the root requirements.txt (hash recorded in the stage-F manifest) is
+# NOT installed on the cloud app. tests/test_ai_email_packaging.py keeps both lists in sync.
+streamlit>=1.66,<2
+pandas>=2.1,<3
+altair>=5,<7
+numpy>=1.26,<3
+requests>=2.31,<3
+psycopg[binary]>=3.2,<4

@@ -1,0 +1,3 @@
+H_days,eligible_share_of_test,cancel_rate_among_eligible,outcomes_after_mark_eligible_at_mark,outcomes_after_mark_created_after_mark,outcomes_after_mark_all,test_outcomes,share_after_mark_eligible_only,share_after_mark_all
+14,0.5371831952546694,0.08286183610147838,908,553,1461,7012,0.12949229891614375,0.20835710211066744
+30,0.4772292759448993,0.13436055469953775,1308,1340,2648,7012,0.1865373645179692,0.37763833428408444
