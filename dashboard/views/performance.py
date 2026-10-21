@@ -1,6 +1,6 @@
-"""Performance page: is the system useful? Two kinds of figures, kept apart.
+"""Performance evaluation page: is the system useful? Two kinds of figures, kept apart.
 
-Operations (the action log, up to today): how many bookings were flagged, approved, contacted,
+Automation performance (the action log, up to today): how many bookings were flagged, approved, contacted,
 how many due actions were carried out, how automation did. Outcomes: actual cancellations, only
 for bookings whose arrival date is before today, never fed back into the queue. A flagged booking
 is not a cancelled one, and a completed contact is not a prevented cancellation: there is no
@@ -18,12 +18,15 @@ ctx = common.ctx()
 con, as_of, queue = ctx.con, ctx.as_of, ctx.queue
 day = as_of.isoformat()
 
-st.header('Performance')
-st.caption('Results up to today. Operational figures come from the action log; cancellations are '
-           'shown only for bookings whose arrival date has passed.')
+st.header('Performance evaluation')
+st.caption('Results up to today, in two parts kept apart. Automation performance counts what the '
+           'team and automation did, from the action log. Booking outcomes (cancelled or not) are '
+           'known only after the arrival date, so they cover arrived bookings only.')
 
-# ================================================================ operations
-st.subheader('Operations')
+# ================================================================ automation performance
+st.subheader('Automation performance')
+st.caption('From the action log up to today: recommendations approved, contacts carried out and '
+           'hand-overs to automation (n8n).')
 known = queue[queue['track'].eq('individual model') & (queue['score_time'] <= as_of)]
 reviews = pd.DataFrame(ss.plan_reviews(con), columns=['decision', 'as_of'])
 reviews = reviews[reviews['as_of'] <= day]
@@ -60,7 +63,9 @@ if not executed.empty:
     st.bar_chart(weekly)
 
 # ================================================================ outcomes
-st.subheader('Cancellations of arrived bookings')
+st.subheader('Booking outcomes after arrival')
+st.caption('Cancelled or not, known only once the arrival date has passed. Never fed back into the '
+           'queue, the schedule or the actions.')
 try:
     outcome = common.load_outcomes(str(ctx.data_repo), mv.outcome_fingerprint(ctx.data_repo))
 except Exception as exc:  # the operational figures above keep working without it

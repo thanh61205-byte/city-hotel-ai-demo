@@ -42,7 +42,7 @@ USE = {
     ('F', 'consistency'): "Risk model's cross-file checks (must all pass)",
     ('F', 'manifest'): 'Run identity, model, configuration',
     ('F', 'bookings'): 'Booking facts: deposit, room type, synthetic net value; outcome after '
-                       'arrival (Overview, Performance, Model monitoring only)',
+                       'arrival (Overview, Performance evaluation, Model monitoring only)',
     ('G1', 'policy'): 'Frozen contact policy: shares, call window, capacity',
     ('G1', 'queue'): "G1 tiers and rules (re-derived and checked at load)",
     ('G1', 'schedule'): 'Dated contacts, capacity-limited calls (checked at load)',
@@ -128,7 +128,7 @@ files the dashboard reloads them on the next interaction and opens a new state D
 run / policy; the old log stays in its own file.
 
 Whether a booking was cancelled is known only after its arrival. It is read for bookings that
-arrived before today (Overview, Performance, Model monitoring) and never feeds the queue, the
+arrived before today (Overview, Performance evaluation, Model monitoring) and never feeds the queue, the
 schedule or the action log.
 
 ### What the data does not hold

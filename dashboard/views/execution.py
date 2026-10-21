@@ -8,7 +8,7 @@ from datetime import timedelta
 import pandas as pd
 import streamlit as st
 
-from dashboard import action_panel, common, state_store as ss, vocab, workflow as wf
+from dashboard import action_panel, common, state_store as ss, ui, vocab, workflow as wf
 from dashboard.ai_email import panel as ai_panel
 from dashboard.common import show_flash, table
 
@@ -77,8 +77,8 @@ c[2].metric('Done', f'{wf.done_between(con, as_of - timedelta(days=6), as_of):,}
 c[3].metric('Calls left', f'{calls_left:,}', border=True,
             help=f'Call slots left today, out of {ctx.capacity} a day.')
 
-# ---------------------------------------------------------------- filters
-with st.container(border=True):
+# ---------------------------------------------------------------- search (applied on submit)
+with st.form('ex_filters'):
     f1, f2, f3, f4 = st.columns([1.6, 1.2, 1, 1])
     statuses = f1.multiselect('Status', STATUSES, default=[wf.DUE, wf.FAILED], key='ex_status',
                               placeholder='Any status')
@@ -89,6 +89,7 @@ with st.container(border=True):
     hi = max(pd.Timestamp(acts['due'].max()).date(), as_of)
     span = f4.date_input('Due between', value=(), min_value=lo, max_value=hi, key='ex_due',
                          format='YYYY/MM/DD')
+    st.form_submit_button('Search actions', type='primary', icon=':material/search:')
 
 view = acts
 if statuses:
@@ -107,20 +108,36 @@ view = view.assign(
 view = view.assign(_o=view['execution_status'].map({s: i for i, s in enumerate(STATUSES)}),
                    _r=~view['status_detail'].eq('Ready')).sort_values(['_o', '_r', 'due', 'action_id'])
 
+
+@st.dialog('Action details', width='large', on_dismiss=common.close_dialog)
+def action_dialog(aid: int) -> None:
+    reviewer = common.reviewer_input('ex_reviewer')
+    action_panel.render(aid, where=HERE, reviewer=reviewer)
+
+
 st.markdown(f'**{len(view):,} actions** match.')
 if view.empty:
-    st.info('No action matches these filters. Clear the status filter to see every action in the log.')
+    st.info('No action matches these filters. Clear the status filter and press Search actions to '
+            'see every action in the log.')
 else:
-    table(view.assign(action_type=view['action_type'].map(vocab.action),
-                      rule_id=view['rule_id'].map(lambda r: vocab.rule(r, with_code=False)))
-          [['action_id', 'target', 'action_type', 'rule_id', 'due', 'execution_status', 'status_detail']],
-          height=min(40 + 35 * len(view), 360))
-    labels = dict(zip(view['action_id'], [f'#{i} · {t} · {vocab.action(a)} · {s}' for i, t, a, s in
-                                           zip(view['action_id'], view['target'], view['action_type'],
-                                               view['execution_status'])]))
-    chosen = int(st.selectbox('Open action', list(labels), format_func=labels.get, key='ex_open'))
-    with st.container(border=True):
-        action_panel.render(chosen, where=HERE, reviewer=common.reviewer_input('ex_reviewer'))
+    page_rows = common.page_slice(view, 'ex_list')
+    clicked = common.item_list(
+        page_rows.to_dict('records'),
+        [('Action', 0.8, lambda a: f"#{a['action_id']}"),
+         ('For', 1.4, lambda a: a['target']),
+         ('Action type', 1.1, lambda a: vocab.action(a['action_type'])),
+         ('Recommendation', 1.6, lambda a: vocab.rule(a['rule_id'], with_code=False)),
+         ('Due', 1.2, lambda a: str(a['due'])),
+         ('Status', 0.9, lambda a: ui.badge(a['execution_status'])),
+         ('Details', 1.6, lambda a: ui.badge('Ready') if a['status_detail'] == 'Ready'
+                                    else (a['status_detail'] or '—'))],
+        key='ex_open', id_field='action_id', button='Info', icon=':material/info:')
+    common.pager(len(view), 'ex_list')
+    if clicked is not None:
+        common.open_dialog(HERE, int(clicked))
+    opened = common.dialog_item(HERE)
+    if opened is not None and opened in set(acts['action_id']):
+        action_dialog(int(opened))
 
 # ---------------------------------------------------------------- one booking's history
 st.subheader('Booking history')

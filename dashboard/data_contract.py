@@ -10,7 +10,7 @@ Sources (one F run, checked by run_id):
 The dashboard shows only the operational weekly queue: bookings scored at the end of their
 booking week and still eligible then. Post-outcome fields (is_canceled,
 outcome_label_known_later, ...) are dropped here; the outcome of bookings that arrived before
-today is read apart, by dashboard/model_view.py (Overview, Performance, Model monitoring).
+today is read apart, by dashboard/model_view.py (Overview, Performance evaluation, Model monitoring).
 """
 from __future__ import annotations
 

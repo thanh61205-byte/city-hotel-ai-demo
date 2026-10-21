@@ -72,22 +72,62 @@ else:
                       'expected_revenue_at_risk': EUR}, height=300)
 
 # ---------------------------------------------------------------- room / price decisions
+# What each date action means in practice and what to check before it is carried out.
+GUIDE = {
+    'capacity_allocation': (
+        'Hold rooms back: keep some rooms of this type off general sale for this night, so they '
+        'stay available if the expected cancellations do not happen.',
+        ['Check in the PMS how many rooms of this type are still free for this night.',
+         'Agree how many rooms to hold and until when.',
+         'A revenue manager approves it in Action Review before anything changes in the PMS.']),
+    'resale': (
+        'Release rooms for resale: put rooms back on sale once cancellations have actually freed '
+        'them, not on the expectation alone.',
+        ['Check in the PMS that the cancellations have really happened for this night.',
+         'Release only rooms that are free in the PMS; never sell a room that is still booked.',
+         'A revenue manager approves it in Action Review before the rooms go back on sale.']),
+    'price_adjustment': (
+        'Adjust price: change the rate of this room type for this night. There are no tested '
+        'price limits yet, so the change is a manual decision.',
+        ['Check current occupancy and the rate in the PMS / channel manager for this night.',
+         'Write the proposed new rate and the reason in the approval.',
+         'A revenue manager approves it in Action Review before the rate changes anywhere.']),
+}
+
 st.subheader('Propose a room or price action')
 st.caption('A revenue manager approves it in Action Review (Pending approvals) before it can be '
            'carried out. The figures shown are stored with the proposal. Overbooking is switched '
            'off by policy; price changes have no tested price limits yet. The system does not '
            'recommend these actions from cancellation risk alone.')
-with st.form('group_action', clear_on_submit=False):
-    keys = [f'{r.arrival_date} | {r.room_type}' for r in buffer.itertuples()]
-    pick = st.selectbox('Stay date | room type', keys)
-    group_actions = tuple(a for a in ss.DATE_ACTIONS if a != 'overbooking')
-    g_type = st.selectbox('Action', group_actions, index=group_actions.index('capacity_allocation'),
-                          format_func=vocab.action)
-    go = st.form_submit_button('Propose action (goes to approval)')
-if go and pick:
-    stay, room = pick.split(' | ')
-    cell = buffer[(buffer['arrival_date'].astype(str) == stay)
-                  & (buffer['room_type'] == room)].iloc[0]
+keys = [f'{r.arrival_date} | {r.room_type}' for r in buffer.itertuples()]
+group_actions = tuple(a for a in ss.DATE_ACTIONS if a != 'overbooking')
+p1, p2 = st.columns(2)
+pick = p1.selectbox('Stay date | room type', keys, key='cap_pick')
+g_type = p2.selectbox('Action', group_actions, index=group_actions.index('capacity_allocation'),
+                      format_func=vocab.action, key='cap_action')
+stay, room = pick.split(' | ')
+cell = buffer[(buffer['arrival_date'].astype(str) == stay) & (buffer['room_type'] == room)].iloc[0]
+
+left, right = st.columns(2)
+with left.container(border=True, height='stretch'):
+    st.markdown(f'**Stay date {stay} · room {room}**')
+    m = st.columns(3)
+    m[0].metric('Bookings on this date', f"{int(cell['bookings']):,}")
+    m[1].metric('Expected cancellations (this date)', f"{cell['expected_cancellations']:.2f}")
+    m[2].metric('Value at risk (this date)', f"€{cell['expected_revenue_at_risk']:,.0f}")
+    st.caption(f"Sources: {int(cell['bookings_G2']):,} group bookings "
+               f"({cell['expected_cancellations_G2']:.2f} expected cancellations) and "
+               f"{int(cell['bookings_I5']):,} high-risk bookings too close to call "
+               f"({cell['expected_cancellations_I5']:.2f}).")
+    st.caption('Expected cancellations are a sum of cancellation probabilities, not rooms certain '
+               'to be free. The system does not check room inventory per night: check the PMS.')
+with right.container(border=True, height='stretch'):
+    what, steps = GUIDE[g_type]
+    st.markdown(f'**{vocab.action(g_type)}**')
+    st.markdown(what)
+    st.markdown('\n'.join(f'{i}. {step}' for i, step in enumerate(steps, 1)))
+
+if st.button('Propose action (goes to approval)', type='primary', icon=':material/send:'):
     rule = {'capacity_allocation': 'G2', 'resale': 'G2', 'overbooking': 'G3',
             'price_adjustment': 'G5'}[g_type]
     try:

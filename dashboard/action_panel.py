@@ -44,8 +44,10 @@ def render(chosen: int, where: str = 'actions', reviewer: str | None = None) -> 
         if reviewer is None:
             reviewer = st.text_input('Reviewer name', placeholder='Revenue manager')
         left, right = st.columns(2)
-        for col, label, approve in ((left, 'Approve', True), (right, 'Reject', False)):
-            if col.button(f'{label} selected action'):
+        for col, label, approve, kind in ((left, 'Approve', True, 'primary'),
+                                          (right, 'Reject', False, 'secondary')):
+            if col.button(f'{label} selected action', type=kind, width='stretch',
+                          icon=':material/check:' if approve else ':material/close:'):
                 try:
                     ss.decide_action(con, chosen, reviewer, approve)
                 except ValueError as e:
@@ -91,9 +93,9 @@ def render(chosen: int, where: str = 'actions', reviewer: str | None = None) -> 
         outcome = st.selectbox('Outcome', ss.GUEST_OUTCOMES if guest else ss.DATE_OUTCOMES,
                                format_func=vocab.outcome)
         b1, b2 = st.columns(2)
-        run_local = b1.form_submit_button('Record execution (staff)')
+        run_local = b1.form_submit_button('Record execution (staff)', type='primary', width='stretch')
         run_n8n = b2.form_submit_button('Retry via n8n' if failed else 'Send to automation (n8n)',
-                                        disabled=not webhook)
+                                        disabled=not webhook, width='stretch')
     if not webhook:
         st.caption('Automation (n8n) is not connected (set G2_N8N_WEBHOOK_URL before launching). '
                    'Everything else works without it.')

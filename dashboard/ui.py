@@ -1,8 +1,8 @@
 """Visual tokens and small presentation helpers of the G2 dashboard (no business logic).
 
 The colour roles mirror .streamlit/config.toml: one accent (azulejo blue) for what the user
-acts on, red / amber / slate reserved for the risk tiers, and ink for outcomes known only after
-arrival, so a colour never means two things.
+acts on, red / amber / slate reserved for the risk tiers, green for what is done, and ink for
+outcomes known only after arrival, so a colour never means two things.
 """
 from __future__ import annotations
 
@@ -15,22 +15,50 @@ TOKENS = {
     'ink': '#14213D',
     'azulejo': '#2457A6',
     'azulejo_light': '#8FA9CF',
-    'paper': '#F6F8FB',
-    'line': '#D5DCE6',
+    'paper': '#FFFFFF',          # page background
+    'surface': '#FFFFFF',        # cards, tables, the Today band
+    'surface_alt': '#F3F6FA',    # inputs, table headers, secondary areas
+    'line': '#DCE3EC',
     'muted': '#64748B',
     'high': '#B42318',
     'medium': '#B7791F',
     'low': '#64748B',
+    'success': '#2F7D4F',
+    'info': '#2457A6',
+    'radius': '0.5rem',
 }
 RISK_COLORS = {'high': TOKENS['high'], 'medium': TOKENS['medium'], 'low': TOKENS['low']}
 
+# Badge colour per status text (Streamlit's markdown badge colours). Risk tiers, review and
+# approval, execution: one colour per meaning on every page.
+BADGE_COLORS = {
+    # risk
+    'high': 'red', 'medium': 'orange', 'low': 'gray',
+    # review / approval
+    'Awaiting review': 'orange', 'Awaiting approval': 'orange', 'Approved': 'green',
+    'Rejected': 'red', 'Decide manually': 'violet', 'No contact planned': 'gray',
+    'No approval needed': 'gray',
+    # execution
+    'Due': 'blue', 'Failed': 'red', 'Scheduled': 'gray', 'Sent': 'green', 'Completed': 'green',
+    'Done': 'green', 'Closed': 'gray', 'Not started': 'gray', 'Ready': 'green',
+}
+
 _CSS = f"""
 <style>
-.block-container {{padding-top: 1.2rem; max-width: 1400px}}
+.block-container {{padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1400px}}
+[data-testid="stMainBlockContainer"] h2 {{padding-top: 0.25rem}}
+[data-testid="stMainBlockContainer"] h3 {{padding-top: 1rem}}
+[data-testid="stMetric"] {{background: {TOKENS['surface']}}}
 [data-testid="stMetricValue"] {{font-variant-numeric: tabular-nums}}
+[data-testid="stMetricLabel"] p {{color: {TOKENS['muted']}; font-weight: 500}}
+[data-testid="stExpander"] details {{border-radius: {TOKENS['radius']}; background: {TOKENS['surface']}}}
+[data-testid="stForm"] {{border-radius: {TOKENS['radius']}; background: {TOKENS['surface']}}}
+[data-testid="stDataFrame"] {{border-radius: {TOKENS['radius']}}}
+button[kind="primary"], button[kind="primaryFormSubmit"] {{font-weight: 600}}
 .g2-clock {{display: flex; flex-wrap: wrap; align-items: stretch; gap: 0 2rem;
   border: 1px solid {TOKENS['line']}; border-left: 6px solid {TOKENS['azulejo']};
-  border-radius: 0.375rem; background: #FFFFFF; padding: 0.9rem 1.25rem; margin: 0.25rem 0 1rem}}
+  border-radius: {TOKENS['radius']}; background: {TOKENS['surface']}; padding: 0.9rem 1.25rem;
+  margin: 0.25rem 0 1.25rem}}
 .g2-clock .g2-today {{min-width: 15rem}}
 .g2-clock .g2-label {{color: {TOKENS['muted']}; font-size: 0.8rem; margin: 0}}
 .g2-clock .g2-date {{color: {TOKENS['azulejo']}; font-size: 1.75rem; font-weight: 700;
@@ -50,6 +78,19 @@ _CSS = f"""
 
 def inject_css() -> None:
     st.markdown(_CSS, unsafe_allow_html=True)
+
+
+def badge(text, label: str | None = None) -> str:
+    """Markdown for a coloured status badge: `text` picks the colour (BADGE_COLORS), `label` is
+    what is shown (default: the text itself). Unknown statuses are grey."""
+    if text is None or text != text:  # None / NaN
+        return '—'
+    shown = str(label if label is not None else text).replace('[', '(').replace(']', ')')
+    return f":{BADGE_COLORS.get(str(text), 'gray')}-badge[{shown}]"
+
+
+def risk_badge(tier) -> str:
+    return badge(tier, str(tier).capitalize() if tier == tier and tier is not None else None)
 
 
 def today_band(today: date, *, last_batch: date | None, last_batch_size: int, calls_made: int,

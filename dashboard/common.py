@@ -30,9 +30,9 @@ P_CANCEL = st.column_config.ProgressColumn('P(cancel)', format='percent', min_va
 # field names of the data contract (docs/G2_data_contract.md).
 LABELS = {
     'booking_id': 'Booking', 'track': 'Track', 'score_time': 'Scored on', 'decision_at': 'Decided on',
-    'arrival_date': 'Arrival', 'days_to_arrival': 'Days to arrival', 'market_segment': 'Segment',
+    'arrival_date': 'Check-in', 'days_to_arrival': 'Days to check-in', 'market_segment': 'Market segment',
     'deposit_type': 'Deposit', 'room_type': 'Room', 'reserved_room_type': 'Room',
-    'p_basis': 'P basis', 'risk_tier': 'Tier', 'f_risk_tier': "F's tier", 'rule': 'Rule',
+    'p_basis': 'P basis', 'risk_tier': 'Risk level', 'f_risk_tier': "F's risk level", 'rule': 'Recommendation',
     'rule_id': 'Rule', 'schedule_status': 'G1 schedule', 'owner': 'Owner', 'approval': 'Approval',
     'expected_revenue_at_risk': 'Revenue at risk', 'syn_net_value_at_risk': 'Net value at risk (synthetic)',
     'scheduled_actions': 'Planned actions', 'scheduled_at': 'Due', 'due': 'Due',
@@ -41,11 +41,13 @@ LABELS = {
     'approval_status': 'Approval', 'approved_by': 'Approved by', 'executed_on': 'Executed on',
     'outcome': 'Outcome', 'late_response': 'Guest response', 'closed': 'Closed',
     'target': 'For', 'status': 'Can it run today?', 'status_detail': 'Details', 'bookings': 'Bookings',
-    'expected_cancellations': 'Expected cancellations', 'gross_value': 'Gross value',
+    'expected_cancellations': 'Expected cancellations', 'gross_value': 'Booking value',
     'first_decision': 'First known', 'bookings_G2': 'Group bookings', 'bookings_I5': 'I5 bookings',
     'expected_cancellations_G2': 'of which group', 'expected_cancellations_I5': 'of which I5', 'lead_time': 'Lead time (days)',
     'is_canceled': 'Cancelled', 'executions': 'Executions',
-    'review_status': 'Review', 'execution_status': 'Execution', 'days_left': 'Days left', 'date': 'Date', 'what': 'What happened', 'who': 'By',
+    'review_status': 'Review status', 'execution_status': 'Execution status',
+    'days_left': 'Days to check-in', 'date': 'Date', 'what': 'What happened', 'who': 'By',
+    'recommended': 'Recommendation',
 }
 RISK_COLORS = ui.RISK_COLORS
 T = ui.TOKENS
@@ -118,9 +120,66 @@ def show_blocked(exc, prefix: str = '') -> None:
 
 def done_and_rerun(message: str, body: dict | None = None, where: str = 'actions') -> None:
     """Keep the confirmation across a rerun, then rerun so every table (and the Today band)
-    shows the new state. `where`: the page that shows it, the one the user acted on."""
+    shows the new state. `where`: the page that shows it, the one the user acted on. An open
+    detail popup closes, so the confirmation is seen on the page."""
     st.session_state.setdefault(f'g2_flash_{where}', []).append((message, body))
+    close_dialog()
     st.rerun()
+
+
+# ---------------------------------------------------------------- detail popups
+# One popup at a time, kept in the session as (page, item) so it stays open while the user works
+# in it and closes after an action (done_and_rerun), when dismissed, or when the page changes.
+_DIALOG = 'g2_dialog'
+
+
+def open_dialog(page: str, item) -> None:
+    st.session_state[_DIALOG] = (page, item)
+
+
+def dialog_item(page: str):
+    """The item whose popup is open on `page`, else None."""
+    open_ = st.session_state.get(_DIALOG)
+    return open_[1] if open_ and open_[0] == page else None
+
+
+def close_dialog() -> None:
+    st.session_state.pop(_DIALOG, None)
+
+
+def keep_dialog_on(page: str) -> None:
+    """app.py: a popup opened on another page is closed when the user moves on."""
+    open_ = st.session_state.get(_DIALOG)
+    if open_ and open_[0] != page:
+        close_dialog()
+
+
+# ---------------------------------------------------------------- paged lists
+PAGE_SIZE = 20
+
+
+def page_slice(df: pd.DataFrame, key: str, size: int = PAGE_SIZE) -> pd.DataFrame:
+    """The rows of the page chosen with pager(key) (drawn under the list). A page number beyond
+    the last page (the filter result shrank) falls back to the last page."""
+    pages = max(1, -(-len(df) // size))
+    k = f'{key}_page'
+    if st.session_state.get(k, 1) > pages:
+        st.session_state[k] = pages
+    n = int(st.session_state.get(k, 1))
+    return df.iloc[(n - 1) * size: n * size]
+
+
+def pager(total: int, key: str, size: int = PAGE_SIZE) -> None:
+    """Page picker under a list: [page] / pages, and which rows are shown."""
+    pages = max(1, -(-total // size))
+    k = f'{key}_page'
+    with st.container(horizontal=True, vertical_alignment='center', gap='small'):
+        st.number_input('Page', min_value=1, max_value=pages, step=1, key=k, width=120,
+                        label_visibility='collapsed')
+        n = int(st.session_state.get(k, 1))
+        first, last = (n - 1) * size + 1, min(n * size, total)
+        st.markdown(f'/ {pages:,} pages · rows {first:,}–{last:,} of {total:,}' if total else
+                    '/ 1 page · no rows', width='content')
 
 
 def show_flash(where: str = 'actions') -> None:
@@ -187,3 +246,23 @@ def state(db_path: str, run_key: str, capacity: int, execution_policy: dict):
         st.session_state[key] = con
     con.rollback()  # nothing half-done is carried over from an interrupted rerun
     return con
+
+
+def item_list(rows: list[dict], spec: list[tuple], *, key: str, id_field: str,
+              button: str = 'Details', icon: str = ':material/open_in_new:'):
+    """A list of records, one line each, with a details button at the end of each line.
+    spec: (header, relative width, row -> markdown) per column. Returns the id of the record
+    whose button was clicked in this run, else None."""
+    widths = [w for _, w, _ in spec] + [1.0]
+    head = st.columns(widths, vertical_alignment='bottom')
+    for col, (header, _, _) in zip(head, spec):
+        col.caption(f'**{header}**')
+    clicked = None
+    for r in rows:
+        with st.container(border=True, gap='small'):
+            cols = st.columns(widths, vertical_alignment='center')
+            for col, (_, _, show) in zip(cols, spec):
+                col.markdown(show(r))
+            if cols[-1].button(button, key=f'{key}_{r[id_field]}', icon=icon, width='stretch'):
+                clicked = r[id_field]
+    return clicked

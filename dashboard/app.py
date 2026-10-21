@@ -89,18 +89,19 @@ if seed_history.status(con) == 'building':
 as_of = TODAY
 weeks = sorted(queue['score_time'].unique())
 
-# The daily flow first: overview -> risk queue -> review -> approval -> execution. Support pages
-# (planning, results, model, data) sit apart so they never interrupt that flow.
+# The daily flow first, in the order the work is done: overview -> approve routine contacts in
+# the risk queue -> carry them out -> look at single bookings and sensitive approvals. Support
+# pages (planning, results, model, data) sit apart so they never interrupt that flow.
 PAGES = {
     'Daily work': [
         st.Page('views/overview.py', title='Overview', icon=':material/dashboard:', default=True),
         st.Page('views/risk_queue.py', title='Risk Queue', icon=':material/format_list_bulleted:'),
-        st.Page('views/action_review.py', title='Action Review', icon=':material/rate_review:'),
         st.Page('views/execution.py', title='Execution & follow-up', icon=':material/send:'),
+        st.Page('views/action_review.py', title='Action Review', icon=':material/rate_review:'),
     ],
     'Planning & analysis': [
         st.Page('views/buffer.py', title='Capacity planning', icon=':material/hotel:'),
-        st.Page('views/performance.py', title='Performance', icon=':material/monitoring:'),
+        st.Page('views/performance.py', title='Performance evaluation', icon=':material/monitoring:'),
         st.Page('views/model_revenue.py', title='Model monitoring', icon=':material/insights:'),
     ],
     'Data': [
@@ -108,6 +109,7 @@ PAGES = {
     ],
 }
 page = st.navigation(PAGES)
+common.keep_dialog_on(page.url_path)  # a detail popup belongs to the page it was opened on
 
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
